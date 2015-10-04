@@ -1,0 +1,7 @@
+# Ignored files
+*.suo
+*.user
+*.sdf
+*.opensdf
+Debug/
+x64
