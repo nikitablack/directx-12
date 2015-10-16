@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <dxgi1_4.h>
 #include <d3d12.h>
+#include <d3d11sdklayers.h>
 
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d12.lib")
@@ -46,31 +47,36 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
+	// 1
 	WNDCLASSEX wcex;
-	wcex.cbSize = sizeof(WNDCLASSEX);
-	wcex.style = CS_HREDRAW | CS_VREDRAW;
-	wcex.lpfnWndProc = WndProc;
-	wcex.cbClsExtra = 0;
-	wcex.cbWndExtra = 0;
-	wcex.hInstance = (HMODULE)GetModuleHandle(0);
-	wcex.hIcon = nullptr;
-	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wcex.lpszMenuName = nullptr;
-	wcex.lpszClassName = "WindowClass";
-	wcex.hIconSm = nullptr;
+	ZeroMemory(&wcex, sizeof(wcex)); // 1.1
+	wcex.cbSize = sizeof(WNDCLASSEX); // 1.2
+	wcex.style = CS_HREDRAW | CS_VREDRAW; // 1.3
+	wcex.lpfnWndProc = WndProc; // 1.4
+	wcex.cbClsExtra = 0; // 1.5
+	wcex.cbWndExtra = 0; // 1.6
+	wcex.hInstance = (HMODULE)GetModuleHandle(0); // 1.7
+	wcex.hIcon = nullptr; // 1.8
+	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW); // 1.9
+	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // 1.10
+	wcex.lpszMenuName = nullptr; // 1.11
+	wcex.lpszClassName = "WindowClass"; // 1.12
+	wcex.hIconSm = nullptr; // 1.13
 
+	// 2
 	if(!RegisterClassEx(&wcex))
 	{
-		MessageBox(nullptr, "Error registering window.", "Error", MB_OK);
+		MessageBox(nullptr, "Error registering window.", "Error", MB_OK); // 2.1
 		return 0;
 	}
 
+	// 3
 	RECT rect{ 0, 0, WIDTH, HEIGHT };
 	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
 	const int windowWidth{ (rect.right - rect.left) };
 	const int windowHeight{ (rect.bottom - rect.top) };
 
+	// 4
 	HWND hWnd{ CreateWindow("WindowClass", "DirectX 12 Window", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, windowWidth, windowHeight, nullptr, nullptr, nullptr, nullptr) };
 	if(!hWnd)
 	{
@@ -78,15 +84,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		return 0;
 	}
 
-	ShowWindow(hWnd, SW_SHOW);
-	UpdateWindow(hWnd);
+	ShowWindow(hWnd, SW_SHOW); // 5
+	UpdateWindow(hWnd); // 6
 
+	// 7
 	ComPtr<IDXGIFactory2> dxgiFactory2;
 	UINT factoryFlags{ 0 };
 #if _DEBUG
-	factoryFlags = DXGI_CREATE_FACTORY_DEBUG;
+	factoryFlags = DXGI_CREATE_FACTORY_DEBUG; // 7.1
 #endif
-	HRESULT hr{ CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&dxgiFactory2)) };
+	HRESULT hr{ CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&dxgiFactory2)) }; // 7.2
 	if (FAILED(hr))
 	{
 		MessageBox(nullptr, "Error creating IDXGIFactory2.", "Error", MB_OK);
@@ -94,7 +101,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	}
 
 	ComPtr<IDXGIFactory4> dxgiFactory;
-	hr = dxgiFactory2.As(&dxgiFactory);
+	hr = dxgiFactory2.As(&dxgiFactory); // 7.3
 	if (FAILED(hr))
 	{
 		MessageBox(nullptr, "Error creating IDXGIFactory4.", "Error", MB_OK);
@@ -103,6 +110,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #ifdef _DEBUG
 	{
+		// 8
 		ComPtr<ID3D12Debug> debugController;
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
 		{
@@ -111,6 +119,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	}
 #endif
 
+	// 9
 	ComPtr<IDXGIAdapter1> adapterTemp;
 	ComPtr<IDXGIAdapter3> adapter;
 
@@ -119,8 +128,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		DXGI_ADAPTER_DESC1 desc;
 		ZeroMemory(&desc, sizeof(desc));
 
-		adapterTemp->GetDesc1(&desc);
+		adapterTemp->GetDesc1(&desc); // 9.1
 
+		// 9.2
 		if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
 		{
 			// Don't select the Basic Render Driver adapter.
@@ -128,23 +138,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			continue;
 		}
 
-		hr = adapterTemp.As(&adapter);
+		hr = adapterTemp.As(&adapter); // 9.3
 		if (SUCCEEDED(hr))
 		{
-			break;
+			break; // 9.4
 		}
 		else
 		{
-			adapter = nullptr;
+			adapter = nullptr; // do I need this line?
 		}
 	}
 
+	// 9.5
 	if (adapter == nullptr)
 	{
-		MessageBox(nullptr, "Error grtting hardware adapter.", "Error", MB_OK);
+		MessageBox(nullptr, "Error getting hardware adapter.", "Error", MB_OK);
 		return 0;
 	}
 
+	// 10
 	ComPtr<ID3D12Device> device;
 	hr = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device));
 	if (FAILED(hr))
@@ -153,9 +165,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		return 0;
 	}
 
+#ifdef _DEBUG
+	// 11
+	ComPtr<ID3D12DebugDevice> debugDevice;
+	hr = device.As(&debugDevice);
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr, "Error creating ID3D12DebugDevice.", "Error", MB_OK);
+		return 0;
+	}
+#endif
+
+	// 12
 	D3D12_COMMAND_QUEUE_DESC queueDesc;
 	ZeroMemory(&queueDesc, sizeof(queueDesc));
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL; //?
+	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	queueDesc.NodeMask = 0;
 
 	ComPtr<ID3D12CommandQueue> commandQueue;
 	hr = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(commandQueue.ReleaseAndGetAddressOf()));
@@ -165,18 +192,40 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		return 0;
 	}
 
+#ifdef _DEBUG
+	// 13
+	ComPtr<ID3D12DebugCommandQueue> debugCommandQueue;
+	hr = device.As(&debugDevice);
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr, "Error creating ID3D12DebugCommandQueue.", "Error", MB_OK);
+		return 0;
+	}
+#endif
+
+	// 14
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc;
 	ZeroMemory(&swapChainDesc, sizeof(swapChainDesc));
 	swapChainDesc.Width = windowWidth;
 	swapChainDesc.Height = windowHeight;
 	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	swapChainDesc.SampleDesc.Count = 1;
+	swapChainDesc.Stereo = FALSE;
+	swapChainDesc.SampleDesc = { 1, 0 }; // no anti-aliasing
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.BufferCount = BUFFER_COUNT;
+	swapChainDesc.Scaling = DXGI_SCALING_NONE;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+	swapChainDesc.Flags = 0;
 
 	ComPtr<IDXGISwapChain1> swapChain1;
-	hr = dxgiFactory->CreateSwapChainForHwnd(commandQueue.Get(), hWnd, &swapChainDesc, nullptr, nullptr, swapChain1.ReleaseAndGetAddressOf());
+	hr = dxgiFactory->CreateSwapChainForHwnd(
+		commandQueue.Get(),
+		hWnd,
+		&swapChainDesc,
+		nullptr, // DXGI_SWAP_CHAIN_FULLSCREEN_DESC *pFullscreenDesc
+		nullptr, // IDXGIOutput *pRestrictToOutput
+		swapChain1.ReleaseAndGetAddressOf()
+	);
 	if (FAILED(hr))
 	{
 		MessageBox(nullptr, "Error creating swap chain.", "Error", MB_OK);
@@ -188,22 +237,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (FAILED(hr))
 	{
 		MessageBox(nullptr, "Error creating IDXGISwapChain3.", "Error", MB_OK);
-		return 0;
-	}
-
-	ComPtr<ID3D12CommandAllocator> commandAlloc;
-	hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(commandAlloc.ReleaseAndGetAddressOf()));
-	if (FAILED(hr))
-	{
-		MessageBox(nullptr, "Error creating command allocator.", "Error", MB_OK);
-		return 0;
-	}
-
-	ComPtr<ID3D12GraphicsCommandList> commandList;
-	device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAlloc.Get(), nullptr, IID_PPV_ARGS(commandList.ReleaseAndGetAddressOf()));
-	if (FAILED(hr))
-	{
-		MessageBox(nullptr, "Error creating command list.", "Error", MB_OK);
 		return 0;
 	}
 
@@ -240,6 +273,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		D3D12_CPU_DESCRIPTOR_HANDLE d{ descHeapRtv->GetCPUDescriptorHandleForHeapStart() };
 		d.ptr += i * rtvStep;
 		device->CreateRenderTargetView(buffers[i].Get(), nullptr, d);
+	}
+
+	ComPtr<ID3D12CommandAllocator> commandAlloc;
+	hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(commandAlloc.ReleaseAndGetAddressOf()));
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr, "Error creating command allocator.", "Error", MB_OK);
+		return 0;
+	}
+
+	ComPtr<ID3D12GraphicsCommandList> commandList;
+	device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAlloc.Get(), nullptr, IID_PPV_ARGS(commandList.ReleaseAndGetAddressOf()));
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr, "Error creating command list.", "Error", MB_OK);
+		return 0;
 	}
 
 	ComPtr<ID3D12Fence> fence;
@@ -351,13 +400,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				MessageBox(nullptr, "Failed WaitForSingleObject().", "Error", MB_OK);
 				return 0;
 			}
-
-			// Equivalent code
-			/*auto prev = mFence->GetCompletedValue();
-			CHK(mCmdQueue->Signal(mFence.Get(), mFrameCount));
-			while (prev == mFence->GetCompletedValue())
-			{
-			}*/
 
 			hr = commandAlloc->Reset();
 			hr = commandList->Reset(commandAlloc.Get(), nullptr);
