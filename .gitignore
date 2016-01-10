@@ -4,4 +4,5 @@
 *.sdf
 *.opensdf
 Debug/
+Release/
 x64

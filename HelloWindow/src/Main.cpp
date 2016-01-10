@@ -1,9 +1,11 @@
 #include <Windows.h>
 #include <wrl/client.h>
-#include <stdexcept>
 #include <dxgi1_4.h>
 #include <d3d12.h>
-#include <d3d11sdklayers.h>
+#include <cstdint>
+#include <stdexcept>
+#include <cmath>
+#include <vector>
 
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d12.lib")
@@ -11,30 +13,10 @@
 using namespace std;
 using Microsoft::WRL::ComPtr;
 
-const LONG WIDTH{ 800 };
-const LONG HEIGHT{ 600 };
-const UINT BUFFER_COUNT{ 2 };
-
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	PAINTSTRUCT ps;
-	HDC hdc;
-
 	switch (message)
 	{
-	case WM_KEYDOWN:
-		if (wParam == VK_ESCAPE)
-		{
-			PostMessage(hWnd, WM_DESTROY, 0, 0);
-			return 0;
-		}
-		break;
-
-	case WM_PAINT:
-		hdc = BeginPaint(hWnd, &ps);
-		EndPaint(hWnd, &ps);
-		break;
-
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
@@ -45,81 +27,60 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return 0;
 };
 
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+HWND createWindow(const LONG width, const LONG height)
 {
-	// 1
 	WNDCLASSEX wcex;
-	ZeroMemory(&wcex, sizeof(wcex)); // 1.1
-	wcex.cbSize = sizeof(WNDCLASSEX); // 1.2
-	wcex.style = CS_HREDRAW | CS_VREDRAW; // 1.3
-	wcex.lpfnWndProc = WndProc; // 1.4
-	wcex.cbClsExtra = 0; // 1.5
-	wcex.cbWndExtra = 0; // 1.6
-	wcex.hInstance = (HMODULE)GetModuleHandle(0); // 1.7
-	wcex.hIcon = nullptr; // 1.8
-	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW); // 1.9
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // 1.10
-	wcex.lpszMenuName = nullptr; // 1.11
-	wcex.lpszClassName = "WindowClass"; // 1.12
-	wcex.hIconSm = nullptr; // 1.13
+	ZeroMemory(&wcex, sizeof(wcex));
+	wcex.cbSize = sizeof(WNDCLASSEX);
+	wcex.style = CS_HREDRAW | CS_VREDRAW;
+	wcex.lpfnWndProc = WndProc;
+	wcex.cbClsExtra = 0;
+	wcex.cbWndExtra = 0;
+	wcex.hInstance = (HMODULE)GetModuleHandle(0);
+	wcex.hIcon = LoadIcon(NULL, IDI_SHIELD);
+	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.lpszMenuName = nullptr;
+	wcex.lpszClassName = "WindowClass";
+	wcex.hIconSm = LoadIcon(NULL, IDI_WARNING);
 
-	// 2
-	if(!RegisterClassEx(&wcex))
+	if (RegisterClassEx(&wcex) == 0)
 	{
-		MessageBox(nullptr, "Error registering window.", "Error", MB_OK); // 2.1
-		return 0;
+		throw(runtime_error{ "Error registering window." });
 	}
 
-	// 3
-	RECT rect{ 0, 0, WIDTH, HEIGHT };
-	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
-	const int windowWidth{ (rect.right - rect.left) };
-	const int windowHeight{ (rect.bottom - rect.top) };
+	RECT rect{ 0, 0, width, height };
+	AdjustWindowRectEx(&rect, WS_OVERLAPPEDWINDOW, FALSE, 0);
 
-	// 4
-	HWND hWnd{ CreateWindow("WindowClass", "DirectX 12 Window", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, windowWidth, windowHeight, nullptr, nullptr, nullptr, nullptr) };
-	if(!hWnd)
+	HWND hWnd{ CreateWindowEx(0, "WindowClass", "Hello World", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, rect.right - rect.left, rect.bottom - rect.top, nullptr, nullptr, nullptr, nullptr) };
+	if (!hWnd)
 	{
-		MessageBox(nullptr, "Error creating window.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating window." });
 	}
 
-	ShowWindow(hWnd, SW_SHOW); // 5
-	UpdateWindow(hWnd); // 6
+	ShowWindow(hWnd, SW_SHOW);
 
-	// 7
-	ComPtr<IDXGIFactory2> dxgiFactory2;
+	return hWnd;
+}
+
+ComPtr<IDXGIFactory4> createFactory()
+{
+	ComPtr<IDXGIFactory4> dxgiFactory;
 	UINT factoryFlags{ 0 };
 #if _DEBUG
-	factoryFlags = DXGI_CREATE_FACTORY_DEBUG; // 7.1
+	factoryFlags = DXGI_CREATE_FACTORY_DEBUG;
 #endif
-	HRESULT hr{ CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&dxgiFactory2)) }; // 7.2
+	HRESULT hr{ CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&dxgiFactory)) };
 	if (FAILED(hr))
 	{
-		MessageBox(nullptr, "Error creating IDXGIFactory2.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating IDXGIFactory2." });
 	}
 
-	ComPtr<IDXGIFactory4> dxgiFactory;
-	hr = dxgiFactory2.As(&dxgiFactory); // 7.3
-	if (FAILED(hr))
-	{
-		MessageBox(nullptr, "Error creating IDXGIFactory4.", "Error", MB_OK);
-		return 0;
-	}
+	return dxgiFactory;
+}
 
-#ifdef _DEBUG
-	{
-		// 8
-		ComPtr<ID3D12Debug> debugController;
-		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
-		{
-			debugController->EnableDebugLayer();
-		}
-	}
-#endif
-
-	// 9
+ComPtr<IDXGIAdapter3> getAdapter(IDXGIFactory4* dxgiFactory)
+{
 	ComPtr<IDXGIAdapter1> adapterTemp;
 	ComPtr<IDXGIAdapter3> adapter;
 
@@ -128,131 +89,107 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		DXGI_ADAPTER_DESC1 desc;
 		ZeroMemory(&desc, sizeof(desc));
 
-		adapterTemp->GetDesc1(&desc); // 9.1
+		adapterTemp->GetDesc1(&desc);
 
-		// 9.2
 		if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
 		{
-			// Don't select the Basic Render Driver adapter.
-			// If you want a software adapter, pass in "/warp" on the command line.
 			continue;
 		}
 
-		hr = adapterTemp.As(&adapter); // 9.3
+		HRESULT hr{ adapterTemp.As(&adapter) };
 		if (SUCCEEDED(hr))
 		{
-			break; // 9.4
-		}
-		else
-		{
-			adapter = nullptr; // do I need this line?
+			break;
 		}
 	}
 
-	// 9.5
 	if (adapter == nullptr)
 	{
-		MessageBox(nullptr, "Error getting hardware adapter.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error getting hardware adapter." });
 	}
 
-	// 10
+	return adapter;
+}
+
+ComPtr<ID3D12Device> createDevice(IDXGIAdapter3* adapter)
+{
 	ComPtr<ID3D12Device> device;
-	hr = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device));
+	HRESULT hr{ D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)) };
 	if (FAILED(hr))
 	{
-		MessageBox(nullptr, "Error creating device.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating device." });
 	}
 
-#ifdef _DEBUG
-	// 11
-	ComPtr<ID3D12DebugDevice> debugDevice;
-	hr = device.As(&debugDevice);
-	if (FAILED(hr))
-	{
-		MessageBox(nullptr, "Error creating ID3D12DebugDevice.", "Error", MB_OK);
-		return 0;
-	}
-#endif
+	return device;
+}
 
-	// 12
+ComPtr<ID3D12CommandQueue> createCommandQueue(ID3D12Device* device)
+{
 	D3D12_COMMAND_QUEUE_DESC queueDesc;
 	ZeroMemory(&queueDesc, sizeof(queueDesc));
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-	queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL; //?
+	queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	queueDesc.NodeMask = 0;
 
 	ComPtr<ID3D12CommandQueue> commandQueue;
-	hr = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(commandQueue.ReleaseAndGetAddressOf()));
+	HRESULT hr{ device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(commandQueue.ReleaseAndGetAddressOf())) };
 	if (FAILED(hr))
 	{
-		MessageBox(nullptr, "Error creating command queue.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating command queue." });
 	}
 
-#ifdef _DEBUG
-	// 13
-	ComPtr<ID3D12DebugCommandQueue> debugCommandQueue;
-	hr = device.As(&debugDevice);
-	if (FAILED(hr))
-	{
-		MessageBox(nullptr, "Error creating ID3D12DebugCommandQueue.", "Error", MB_OK);
-		return 0;
-	}
-#endif
+	return commandQueue;
+}
 
-	// 14
+ComPtr<IDXGISwapChain3> createSwapChain(const LONG width, const LONG height, const UINT bufferCount, IDXGIFactory4* dxgiFactory, ID3D12CommandQueue* commandQueue, HWND hWnd)
+{
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc;
 	ZeroMemory(&swapChainDesc, sizeof(swapChainDesc));
-	swapChainDesc.Width = windowWidth;
-	swapChainDesc.Height = windowHeight;
+	swapChainDesc.Width = width;
+	swapChainDesc.Height = height;
 	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc.Stereo = FALSE;
 	swapChainDesc.SampleDesc = { 1, 0 }; // no anti-aliasing
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapChainDesc.BufferCount = BUFFER_COUNT;
+	swapChainDesc.BufferCount = bufferCount;
 	swapChainDesc.Scaling = DXGI_SCALING_NONE;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 	swapChainDesc.Flags = 0;
 
 	ComPtr<IDXGISwapChain1> swapChain1;
-	hr = dxgiFactory->CreateSwapChainForHwnd(
-		commandQueue.Get(),
-		hWnd,
-		&swapChainDesc,
-		nullptr, // DXGI_SWAP_CHAIN_FULLSCREEN_DESC *pFullscreenDesc
-		nullptr, // IDXGIOutput *pRestrictToOutput
-		swapChain1.ReleaseAndGetAddressOf()
-	);
-	if (FAILED(hr))
+	if (FAILED(dxgiFactory->CreateSwapChainForHwnd(commandQueue, hWnd, &swapChainDesc, nullptr, nullptr, swapChain1.ReleaseAndGetAddressOf())))
 	{
-		MessageBox(nullptr, "Error creating swap chain.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating IDXGISwapChain1." });
 	}
 
 	ComPtr<IDXGISwapChain3> swapChain;
-	hr = swapChain1.As(&swapChain);
-	if (FAILED(hr))
+	if (FAILED(swapChain1.As(&swapChain)))
 	{
-		MessageBox(nullptr, "Error creating IDXGISwapChain3.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating IDXGISwapChain3." });
 	}
 
-	ComPtr<ID3D12Resource> buffers[BUFFER_COUNT];
-	for (UINT i{ 0 }; i < BUFFER_COUNT; i++)
+	return swapChain;
+}
+
+vector<ComPtr<ID3D12Resource>> getBuffers(const UINT bufferCount, IDXGISwapChain3* swapChain)
+{
+	vector<ComPtr<ID3D12Resource>> buffers(bufferCount);
+	for (UINT i{ 0 }; i < bufferCount; i++)
 	{
-		hr = swapChain->GetBuffer(i, IID_PPV_ARGS(buffers[i].ReleaseAndGetAddressOf()));
-		if (FAILED(hr))
+		if (FAILED(swapChain->GetBuffer(i, IID_PPV_ARGS(buffers[i].ReleaseAndGetAddressOf()))))
 		{
-			MessageBox(nullptr, "Error getting buffer.", "Error", MB_OK);
-			return 0;
+			throw(runtime_error{ "Error getting buffer." });
 		}
 
 		buffers[i]->SetName(L"SwapChain_Buffer");
 	}
 
+	return buffers;
+}
+
+ComPtr<ID3D12DescriptorHeap> createDescriptoprHeapRTV(ID3D12Device* device, const UINT bufferCount, vector<ComPtr<ID3D12Resource>>& buffers)
+{
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc;
 	ZeroMemory(&heapDesc, sizeof(heapDesc));
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
@@ -260,149 +197,215 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	heapDesc.NodeMask = 0;
 
 	ComPtr<ID3D12DescriptorHeap> descHeapRtv;
-	hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(descHeapRtv.ReleaseAndGetAddressOf()));
-	if (FAILED(hr))
+	if (FAILED(device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(descHeapRtv.ReleaseAndGetAddressOf()))))
 	{
-		MessageBox(nullptr, "Error creating descriptor heap.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating descriptor heap." });
 	}
 
 	UINT rtvStep{ device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV) };
-	for (UINT i{ 0 }; i < BUFFER_COUNT; i++)
+	for (UINT i{ 0 }; i < bufferCount; i++)
 	{
 		D3D12_CPU_DESCRIPTOR_HANDLE d{ descHeapRtv->GetCPUDescriptorHandleForHeapStart() };
 		d.ptr += i * rtvStep;
 		device->CreateRenderTargetView(buffers[i].Get(), nullptr, d);
 	}
 
+	return descHeapRtv;
+}
+
+ComPtr<ID3D12CommandAllocator> createCommandAllocator(ID3D12Device* device)
+{
 	ComPtr<ID3D12CommandAllocator> commandAlloc;
-	hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(commandAlloc.ReleaseAndGetAddressOf()));
-	if (FAILED(hr))
+	if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(commandAlloc.ReleaseAndGetAddressOf()))))
 	{
-		MessageBox(nullptr, "Error creating command allocator.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating command allocator." });
 	}
 
+	return commandAlloc;
+}
+
+ComPtr<ID3D12GraphicsCommandList> createCommandList(ID3D12Device* device, ID3D12CommandAllocator* commandAlloc)
+{
 	ComPtr<ID3D12GraphicsCommandList> commandList;
-	device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAlloc.Get(), nullptr, IID_PPV_ARGS(commandList.ReleaseAndGetAddressOf()));
-	if (FAILED(hr))
+
+	if (FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAlloc, nullptr, IID_PPV_ARGS(commandList.ReleaseAndGetAddressOf()))))
 	{
-		MessageBox(nullptr, "Error creating command list.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating command list." });
 	}
 
+	return commandList;
+}
+
+HANDLE createFenceEvent()
+{
+	HANDLE fenceEventHandle{ CreateEvent(nullptr, FALSE, FALSE, nullptr) };
+	if (fenceEventHandle == NULL)
+	{
+		throw(runtime_error{ "Error creating fence event." });
+	}
+
+	return fenceEventHandle;
+}
+
+ComPtr<ID3D12Fence> createFence(ID3D12Device* device)
+{
 	ComPtr<ID3D12Fence> fence;
-	hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.ReleaseAndGetAddressOf()));
-	if (FAILED(hr))
+	if (FAILED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.ReleaseAndGetAddressOf()))))
 	{
-		MessageBox(nullptr, "Error creating fence.", "Error", MB_OK);
-		return 0;
+		throw(runtime_error{ "Error creating fence." });
 	}
 
-	HANDLE fenceEveneHandle{ CreateEvent(nullptr, FALSE, FALSE, nullptr) };
+	return fence;
+}
 
+void render(ID3D12Device* device, ID3D12DescriptorHeap* descHeapRtv, const UINT bufferCount, const LONG width, const LONG height, vector<ComPtr<ID3D12Resource>>& buffers, ID3D12GraphicsCommandList* commandList, ID3D12CommandQueue* commandQueue, IDXGISwapChain3* swapChain, ID3D12Fence* fence, HANDLE fenceEventHandle, ID3D12CommandAllocator* commandAlloc)
+{
+	static uint64_t frameCount{ 0 };
 
+	++frameCount;
 
+	// Get current RTV descriptor
+	UINT descHandleRtvStep{ device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV) };
+	D3D12_CPU_DESCRIPTOR_HANDLE descHandleRtv{ descHeapRtv->GetCPUDescriptorHandleForHeapStart() };
+	descHandleRtv.ptr += ((frameCount - 1) % bufferCount) * descHandleRtvStep;
 
+	// Get current swap chain
+	ID3D12Resource* d3dBuffer{ buffers[(frameCount - 1) % bufferCount].Get() };
 
+	// Barrier Present -> RenderTarget
+	D3D12_RESOURCE_BARRIER barrierDesc;
+	ZeroMemory(&barrierDesc, sizeof(barrierDesc));
+	barrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrierDesc.Transition.pResource = d3dBuffer;
+	barrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	barrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	barrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	commandList->ResourceBarrier(1, &barrierDesc);
 
+	// Viewport
+	D3D12_VIEWPORT viewport;
+	ZeroMemory(&viewport, sizeof(viewport));
+	viewport.Width = (float)width;
+	viewport.Height = (float)height;
+	commandList->RSSetViewports(1, &viewport);
 
+	// Clear
+	static float clearColor[]{ 0.0f, 0.5f, 0.0f, 1.0f };
+	commandList->ClearRenderTargetView(descHandleRtv, clearColor, 0, nullptr);
 
+	// Barrier RenderTarget -> Present
+	ZeroMemory(&barrierDesc, sizeof(barrierDesc));
+	barrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrierDesc.Transition.pResource = d3dBuffer;
+	barrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	barrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+	barrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	commandList->ResourceBarrier(1, &barrierDesc);
 
+	// Exec
+	if (FAILED(commandList->Close()))
+	{
+		throw(runtime_error{ "Failed closing command list." });
+	}
 
+	ID3D12CommandList* cmdList{ commandList };
+	commandQueue->ExecuteCommandLists(1, &cmdList);
 
+	// Present
+	if (FAILED(swapChain->Present(1, 0)))
+	{
+		throw(runtime_error{ "Failed present." });
+	}
 
+	// Set queue flushed event
+	if (FAILED(fence->SetEventOnCompletion(frameCount, fenceEventHandle)))
+	{
+		throw(runtime_error{ "Failed set event on completion." });
+	}
 
+	// Wait for queue flushed
+	// This code would occur CPU stall!
+	if (FAILED(commandQueue->Signal(fence, frameCount)))
+	{
+		throw(runtime_error{ "Failed signal." });
+	}
 
+	DWORD wait = WaitForSingleObject(fenceEventHandle, 10000);
+	if (wait != WAIT_OBJECT_0)
+	{
+		throw(runtime_error{ "Failed WaitForSingleObject()." });
+	}
 
+	if (FAILED(commandAlloc->Reset()))
+	{
+		throw(runtime_error{ "Failed command allocator reset." });
+	}
 
+	if (FAILED(commandList->Reset(commandAlloc, nullptr)))
+	{
+		throw(runtime_error{ "Failed command list reset." });
+	}
+}
 
-	uint64_t frameCount{ 0 };
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+{
+	const LONG width{ 800 };
+	const LONG height{ 600 };
+	const UINT bufferCount{ 2 };
+
+	HWND hWnd;
+	ComPtr<IDXGIFactory4> dxgiFactory;
+	ComPtr<IDXGIAdapter3> adapter;
+	ComPtr<ID3D12Device> device;
+	ComPtr<ID3D12CommandQueue> commandQueue;
+	ComPtr<IDXGISwapChain3> swapChain;
+	vector<ComPtr<ID3D12Resource>> buffers;
+	ComPtr<ID3D12DescriptorHeap> descHeapRtv;
+	ComPtr<ID3D12CommandAllocator> commandAlloc;
+	ComPtr<ID3D12GraphicsCommandList> commandList;
+	ComPtr<ID3D12Fence> fence;
+	HANDLE fenceEventHandle;
+
+	try
+	{
+		hWnd = createWindow(width, height);
+		dxgiFactory = createFactory();
+		adapter = getAdapter(dxgiFactory.Get());
+		device = createDevice(adapter.Get());
+		commandQueue = createCommandQueue(device.Get());
+		swapChain = createSwapChain(width, height, bufferCount, dxgiFactory.Get(), commandQueue.Get(), hWnd);
+		buffers = getBuffers(bufferCount, swapChain.Get());
+		descHeapRtv = createDescriptoprHeapRTV(device.Get(), bufferCount, buffers);
+		commandAlloc = createCommandAllocator(device.Get());
+		commandList = createCommandList(device.Get(), commandAlloc.Get());
+		fence = createFence(device.Get());
+		fenceEventHandle = createFenceEvent();
+	}
+	catch (runtime_error& err)
+	{
+		MessageBox(nullptr, err.what(), "Error", MB_OK);
+		return 0;
+	}
 
 	MSG msg;
 	ZeroMemory(&msg, sizeof(msg));
 
-	while(msg.message != WM_QUIT)
+	while (msg.message != WM_QUIT)
 	{
-		BOOL r{ PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE) };
-		if(r == 0)
+		BOOL r{ PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) };
+		if (r == 0)
 		{
-			++frameCount;
-
-			// Get current RTV descriptor
-			UINT descHandleRtvStep{ device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV) };
-			D3D12_CPU_DESCRIPTOR_HANDLE descHandleRtv{ descHeapRtv->GetCPUDescriptorHandleForHeapStart() };
-			descHandleRtv.ptr += ((frameCount - 1) % BUFFER_COUNT) * descHandleRtvStep;
-
-			// Get current swap chain
-			ID3D12Resource* d3dBuffer{ buffers[(frameCount - 1) % BUFFER_COUNT].Get() };
-
-			// Barrier Present -> RenderTarget
-			D3D12_RESOURCE_BARRIER barrierDesc;
-			ZeroMemory(&barrierDesc, sizeof(barrierDesc));
-			barrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			barrierDesc.Transition.pResource = d3dBuffer;
-			barrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			barrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-			barrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-			barrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			commandList->ResourceBarrier(1, &barrierDesc);
-
-			// Viewport
-			D3D12_VIEWPORT viewport;
-			ZeroMemory(&viewport, sizeof(viewport));
-			viewport.Width = (float)windowWidth;
-			viewport.Height = (float)windowHeight;
-			commandList->RSSetViewports(1, &viewport);
-
-			// Clear
+			try
 			{
-				auto saturate = [](float a) { return a < 0 ? 0 : a > 1 ? 1 : a; };
-				float clearColor[4];
-				static float h = 0.0f;
-				h += 0.01f;
-				if (h >= 1) h = 0.0f;
-				clearColor[0] = saturate(std::abs(h * 6.0f - 3.0f) - 1.0f);
-				clearColor[1] = saturate(2.0f - std::abs(h * 6.0f - 2.0f));
-				clearColor[2] = saturate(2.0f - std::abs(h * 6.0f - 4.0f));
-				commandList->ClearRenderTargetView(descHandleRtv, clearColor, 0, nullptr);
+				render(device.Get(), descHeapRtv.Get(), bufferCount, width, height, buffers, commandList.Get(), commandQueue.Get(), swapChain.Get(), fence.Get(), fenceEventHandle, commandAlloc.Get());
 			}
-
-			// Barrier RenderTarget -> Present
-			ZeroMemory(&barrierDesc, sizeof(barrierDesc));
-			barrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			barrierDesc.Transition.pResource = d3dBuffer;
-			barrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			barrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-			barrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-			barrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			commandList->ResourceBarrier(1, &barrierDesc);
-
-			// Exec
-			hr = commandList->Close();
-
-			ID3D12CommandList* const cmdList = commandList.Get();
-			commandQueue->ExecuteCommandLists(1, &cmdList);
-
-			// Present
-			hr = swapChain->Present(1, 0);
-
-			// Set queue flushed event
-			hr = fence->SetEventOnCompletion(frameCount, fenceEveneHandle);
-
-			// Wait for queue flushed
-			// This code would occur CPU stall!
-			hr = commandQueue->Signal(fence.Get(), frameCount);
-
-			DWORD wait = WaitForSingleObject(fenceEveneHandle, 10000);
-			if (wait != WAIT_OBJECT_0)
+			catch (runtime_error& err)
 			{
-				MessageBox(nullptr, "Failed WaitForSingleObject().", "Error", MB_OK);
+				MessageBox(nullptr, err.what(), "Error", MB_OK);
 				return 0;
 			}
-
-			hr = commandAlloc->Reset();
-			hr = commandList->Reset(commandAlloc.Get(), nullptr);
 		}
 		else
 		{
