@@ -1,0 +1,14 @@
+#define NUM_CONTROL_POINTS 16
+#define EDGE_TESS_FACTOR 16
+#define INSIDE_TESS_FACTOR 16
+
+struct VertexData
+{
+	float3 pos : POSITION;
+};
+
+struct PatchConstantData
+{
+	float EdgeTessFactor[4] : SV_TessFactor;
+	float InsideTessFactor[2] : SV_InsideTessFactor;
+};
