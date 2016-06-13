@@ -58,14 +58,14 @@ void Graphics1::createFences()
 
 void Graphics1::createFenceEventHandle()
 {
-	HANDLE fenceEventHandle{ CreateEvent(nullptr, FALSE, FALSE, nullptr) };
+	fenceEventHandle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 	if (fenceEventHandle == NULL)
 	{
 		throw(runtime_error{ "Error creating fence event." });
 	}
 }
 
-void HelloTeapotDemo::waitForPreviousFrame()
+void Graphics1::waitForPreviousFrame()
 {
 	UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
 	UINT64 fenceValue{ fenceValues[frameIndex] };

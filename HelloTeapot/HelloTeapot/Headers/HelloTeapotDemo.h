@@ -8,7 +8,7 @@ class HelloTeapotDemo : public Graphics1
 public:
 	HelloTeapotDemo(UINT bufferCount, std::string name, LONG width, LONG height);
 
-	void render() override;
+	void render();
 
 private:
 	void createControlPointsBuffer();

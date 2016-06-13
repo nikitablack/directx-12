@@ -24,8 +24,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	try
 	{
-		window = make_shared<Window>(width, height, "Hello, Teapot!");
-		teapot = make_shared<HelloTeapotDemo>(window, bufferCount);
+		//window = make_shared<Window>(width, height, "Hello, Teapot!");
+		teapot = make_shared<HelloTeapotDemo>(bufferCount, "Hello Teapot!", 800, 600);
 	}
 	catch (runtime_error& err)
 	{

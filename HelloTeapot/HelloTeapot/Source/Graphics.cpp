@@ -7,7 +7,8 @@ using namespace Microsoft::WRL;
 
 Graphics::Graphics(UINT bufferCount, string name, LONG width, LONG height) : bufferCount{ bufferCount }, swapChainBuffers(bufferCount)
 {
-	createFactory(width, height);
+	createWindow(name, width, height);
+	createFactory();
 	getAdapter(false);
 	createDevice();
 	createCommandQueue();

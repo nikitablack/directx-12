@@ -2,12 +2,12 @@
 
 #include "Graphics.h"
 
-class Graphics1 : Graphics
+class Graphics1 : public Graphics
 {
 public:
 	Graphics1(UINT bufferCount, std::string name, LONG width, LONG height);
 
-private:
+protected:
 	void createCommandAllocators();
 	void createCommandList();
 	void createFences();

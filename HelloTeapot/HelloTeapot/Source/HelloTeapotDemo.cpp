@@ -9,10 +9,10 @@ using namespace std;
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
-HelloTeapotDemo::HelloTeapotDemo(UINT bufferCount, string name, LONG width, LONG height) : Graphics{ bufferCount, name, width, height }
+HelloTeapotDemo::HelloTeapotDemo(UINT bufferCount, string name, LONG width, LONG height) : Graphics1{ bufferCount, name, width, height }
 {
-	createControlPointsBuffers();
-	createControlPointsIndexBuffer();
+	createControlPointsBuffer();
+	createControlPointsIndexBuffers();
 	createCbvHeap();
 	createConstantBuffers();
 	createRootSignature();
@@ -251,7 +251,7 @@ void HelloTeapotDemo::createControlPointsBuffer()
 	data.RowPitch = bufferSize;
 	data.SlicePitch = bufferSize;
 
-	ComPtr<ID3D12GraphicsCommandList> commandList{ commandLists[0] };
+	//ComPtr<ID3D12GraphicsCommandList> commandList{ commandLists[0] };
 	ComPtr<ID3D12CommandAllocator> commandAllocator{ commandAllocators[0] };
 	commandList->Reset(commandAllocator.Get(), nullptr);
 	UpdateSubresources(commandList.Get(), controlPointsBuffer.Get(), uploadHeap.Get(), 0, 0, 1, &data);
@@ -268,7 +268,7 @@ void HelloTeapotDemo::createControlPointsBuffer()
 		throw(runtime_error{ "Error siganalling control points buffer uploaded." });
 	}
 
-	HANDLE fenceEventHandle{ fenceEventHandles[0] };
+	//HANDLE fenceEventHandle{ fenceEventHandles[0] };
 	if (FAILED(fence->SetEventOnCompletion(1, fenceEventHandle)))
 	{
 		throw(runtime_error{ "Failed set event on completion." });
@@ -340,7 +340,7 @@ void HelloTeapotDemo::createControlPointsIndexBuffers()
 		data.RowPitch = bufferSize;
 		data.SlicePitch = bufferSize;
 
-		ComPtr<ID3D12GraphicsCommandList> commandList{ commandLists[0] };
+		//ComPtr<ID3D12GraphicsCommandList> commandList{ commandLists[0] };
 		ComPtr<ID3D12CommandAllocator> commandAllocator{ commandAllocators[0] };
 		commandList->Reset(commandAllocator.Get(), nullptr);
 		UpdateSubresources(commandList.Get(), buffer.Get(), uploadHeap.Get(), 0, 0, 1, &data);
@@ -357,7 +357,7 @@ void HelloTeapotDemo::createControlPointsIndexBuffers()
 			throw(runtime_error{ "Error siganalling control points buffer uploaded." });
 		}
 
-		HANDLE fenceEventHandle{ fenceEventHandles[0] };
+		//HANDLE fenceEventHandle{ fenceEventHandles[0] };
 		if (FAILED(fence->SetEventOnCompletion(1, fenceEventHandle)))
 		{
 			throw(runtime_error{ "Failed set event on completion." });
