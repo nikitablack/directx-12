@@ -1,23 +1,17 @@
 #pragma once
 
-#include "Graphics.h"
-#include <string>
 #include <DirectXMath.h>
+#include "Graphics1.h"
 
-class HelloTeapotDemo : public Graphics
+class HelloTeapotDemo : public Graphics1
 {
 public:
-	HelloTeapotDemo(std::shared_ptr<Window> window, UINT bufferCount);
+	HelloTeapotDemo(UINT bufferCount, std::string name, LONG width, LONG height);
 
 	void render() override;
 
 private:
-	void createCommandAllocators();
-	void createCommandLists();
-	void createFences();
-	void createFenceEvents();
-	void waitForPreviousFrame();
-	void createControlPointsBuffers();
+	void createControlPointsBuffer();
 	void createControlPointsIndexBuffers();
 	void createCbvHeap();
 	void createConstantBuffers();
@@ -29,15 +23,11 @@ private:
 	void createPipelineState();
 	void createViewport();
 	void createScissorRect();
-	void drawPart(int currPart, int indexView, ID3D12GraphicsCommandList* commandList, DirectX::XMFLOAT3 rot, DirectX::XMFLOAT3 scale = { 1.0f, 1.0f, 1.0f });
+	void drawPart(int currPart, int indexView, DirectX::XMFLOAT3 rot, DirectX::XMFLOAT3 scale = { 1.0f, 1.0f, 1.0f });
 
 private:
 	const int NUM_PARTS{ 28 };
-	std::vector<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>> commandAllocators;
-	std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>> commandLists;
-	std::vector<Microsoft::WRL::ComPtr<ID3D12Fence>> fences;
-	std::vector<UINT64> fenceValues;
-	std::vector<HANDLE> fenceEventHandles;
+
 	Microsoft::WRL::ComPtr<ID3D12Resource> controlPointsBuffer;
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> controlPointsIndexBuffers;
 	D3D12_VERTEX_BUFFER_VIEW controlPointsBufferView;

@@ -6,19 +6,21 @@
 #include <vector>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 class Graphics
 {
 public:
-	Graphics(std::shared_ptr<class Window> window, UINT bufferCount);
+	Graphics(UINT bufferCount, std::string name, LONG width, LONG height);
 
-	virtual void render() = 0;
+	//virtual void render() = 0;
 
-	ID3D12Device* getDevice();
+	/*ID3D12Device* getDevice();
 	Microsoft::WRL::ComPtr<ID3D12Device> getDeviceCom();
-	IDXGISwapChain3* getSwapChain();
+	IDXGISwapChain3* getSwapChain();*/
 
 private:
+	void createWindow(std::string name, LONG width, LONG height);
 	void createFactory();
 	void getAdapter(bool useWarp);
 	void createDevice();

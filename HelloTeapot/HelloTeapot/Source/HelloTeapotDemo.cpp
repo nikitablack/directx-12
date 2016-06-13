@@ -1,7 +1,7 @@
-#include "..\Headers\HelloTeapotDemo.h"
 #include <stdexcept>
-#include "..\Headers\d3dx12.h"
 #include <d3dcompiler.h>
+#include "..\Headers\HelloTeapotDemo.h"
+#include "..\Headers\d3dx12.h"
 #include "..\Headers\TeapotData.h"
 #include "..\Headers\Window.h"
 
@@ -9,14 +9,10 @@ using namespace std;
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
-HelloTeapotDemo::HelloTeapotDemo(shared_ptr<Window> window, UINT bufferCount) : Graphics{ window, bufferCount }
+HelloTeapotDemo::HelloTeapotDemo(UINT bufferCount, string name, LONG width, LONG height) : Graphics{ bufferCount, name, width, height }
 {
-	createCommandAllocators();
-	createCommandLists();
-	createFences();
-	createFenceEvents();
 	createControlPointsBuffers();
-	createControlPointsIndexBuffers();
+	createControlPointsIndexBuffer();
 	createCbvHeap();
 	createConstantBuffers();
 	createRootSignature();
@@ -29,13 +25,13 @@ HelloTeapotDemo::HelloTeapotDemo(shared_ptr<Window> window, UINT bufferCount) : 
 	createScissorRect();
 }
 
-void HelloTeapotDemo::drawPart(int currPart, int indexView, ID3D12GraphicsCommandList* commandList, XMFLOAT3 rot, XMFLOAT3 scale)
+void HelloTeapotDemo::drawPart(int currPart, int indexView, XMFLOAT3 rot, XMFLOAT3 scale)
 {
 	UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
 
 	ID3D12Resource* constBuffer{ constBuffers[frameIndex].Get() };
 
-	XMMATRIX projMatrixDX{ XMMatrixPerspectiveFovLH(XMConvertToRadians(45), 800.0f / 600.0f, 1.0f, 100.0f) };
+	XMMATRIX projMatrixDX{ XMMatrixPerspectiveFovLH(XMConvertToRadians(45.0f), 800.0f / 600.0f, 1.0f, 100.0f) };
 
 	XMVECTOR camPositionDX(XMVectorSet(0.0f, 0.0f, -10.0f, 0.0f));
 	XMVECTOR camLookAtDX(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f));
@@ -44,8 +40,8 @@ void HelloTeapotDemo::drawPart(int currPart, int indexView, ID3D12GraphicsComman
 
 	XMMATRIX viewProjMatrixDX{ viewMatrixDX * projMatrixDX };
 
-	UINT constDataSizeAligned{ (sizeof(XMFLOAT4X4) + 255) & ~255 };
-	UINT descriptorSize{ device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) };
+	static UINT constDataSizeAligned{ (sizeof(XMFLOAT4X4) + 255) & ~255 };
+	static UINT descriptorSize{ device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) };
 
 	D3D12_GPU_DESCRIPTOR_HANDLE d{ descHeapCbv->GetGPUDescriptorHandleForHeapStart() };
 	d.ptr += (frameIndex * NUM_PARTS + currPart) * descriptorSize;
@@ -78,7 +74,6 @@ void HelloTeapotDemo::render()
 	UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
 
 	ComPtr<ID3D12CommandAllocator> commandAllocator{ commandAllocators[frameIndex] };
-	ComPtr<ID3D12GraphicsCommandList> commandList{ commandLists[frameIndex] };
 
 	if (FAILED(commandAllocator->Reset()))
 	{
@@ -134,52 +129,49 @@ void HelloTeapotDemo::render()
 
 	XMMATRIX viewProjMatrixDX{ viewMatrixDX * projMatrixDX };
 
-	UINT constDataSizeAligned{ (sizeof(XMFLOAT4X4) + 255) & ~255 };
-	UINT descriptorSize{ device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) };
-
 	//******DRAW_TEAPOT*************************************************************************
 	int currPart{ 0 };
 	// Rim
-	drawPart(currPart++, 0, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 0, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
-	drawPart(currPart++, 0, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
-	drawPart(currPart++, 0, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
+	drawPart(currPart++, 0, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 0, { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
+	drawPart(currPart++, 0, { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
+	drawPart(currPart++, 0, { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
 
 	// Body
-	drawPart(currPart++, 1, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 1, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
-	drawPart(currPart++, 1, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
-	drawPart(currPart++, 1, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
+	drawPart(currPart++, 1, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 1, { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
+	drawPart(currPart++, 1, { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
+	drawPart(currPart++, 1, { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
 
-	drawPart(currPart++, 2, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 2, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
-	drawPart(currPart++, 2, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
-	drawPart(currPart++, 2, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
+	drawPart(currPart++, 2, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 2, { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
+	drawPart(currPart++, 2, { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
+	drawPart(currPart++, 2, { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
 
 	// Lid
-	drawPart(currPart++, 3, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 3, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
-	drawPart(currPart++, 3, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
-	drawPart(currPart++, 3, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
+	drawPart(currPart++, 3, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 3, { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
+	drawPart(currPart++, 3, { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
+	drawPart(currPart++, 3, { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
 
-	drawPart(currPart++, 4, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 4, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
-	drawPart(currPart++, 4, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
-	drawPart(currPart++, 4, commandList.Get(), { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
+	drawPart(currPart++, 4, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 4, { 0.0f, 0.0f, XMConvertToRadians(90.0f) });
+	drawPart(currPart++, 4, { 0.0f, 0.0f, XMConvertToRadians(180.0f) });
+	drawPart(currPart++, 4, { 0.0f, 0.0f, XMConvertToRadians(270.0f) });
 
 	// Handle
-	drawPart(currPart++, 5, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 5, commandList.Get(), { 0.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f });
+	drawPart(currPart++, 5, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 5, { 0.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f });
 
-	drawPart(currPart++, 6, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 6, commandList.Get(), { 0.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f });
+	drawPart(currPart++, 6, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 6, { 0.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f });
 
 	// Spout
-	drawPart(currPart++, 7, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 7, commandList.Get(), { 0.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f });
+	drawPart(currPart++, 7, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 7, { 0.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f });
 
-	drawPart(currPart++, 8, commandList.Get(), { 0.0f, 0.0f, 0.0f });
-	drawPart(currPart++, 8, commandList.Get(), { 0.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f });
+	drawPart(currPart++, 8, { 0.0f, 0.0f, 0.0f });
+	drawPart(currPart++, 8, { 0.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f });
 
 	//*******************************************************************************
 
@@ -191,8 +183,6 @@ void HelloTeapotDemo::render()
 	barrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 	barrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 	commandList->ResourceBarrier(1, &barrierDesc);
-
-	//commandList->IASetVertexBuffers(0, 1, &positionsBufferView);
 
 	if (FAILED(commandList->Close()))
 	{
@@ -218,70 +208,7 @@ void HelloTeapotDemo::render()
 	waitForPreviousFrame();
 }
 
-void HelloTeapotDemo::createCommandAllocators()
-{
-	for (UINT i{ 0 }; i < bufferCount; i++)
-	{
-		ComPtr<ID3D12CommandAllocator> commandAllocator;
-		if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(commandAllocator.ReleaseAndGetAddressOf()))))
-		{
-			throw(runtime_error{ "Error creating command allocator." });
-		}
-
-		commandAllocators.push_back(commandAllocator);
-	}
-}
-
-void HelloTeapotDemo::createCommandLists()
-{
-	for (UINT i{ 0 }; i < bufferCount; i++)
-	{
-		ComPtr<ID3D12GraphicsCommandList> commandList;
-		if (FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocators[i].Get(), nullptr, IID_PPV_ARGS(commandList.ReleaseAndGetAddressOf()))))
-		{
-			throw(runtime_error{ "Error creating command list." });
-		}
-
-		if (FAILED(commandList->Close()))
-		{
-			throw(runtime_error{ "Error closing command list." });
-		}
-
-		commandLists.push_back(commandList);
-	}
-}
-
-void HelloTeapotDemo::createFences()
-{
-	for (UINT i{ 0 }; i < bufferCount; i++)
-	{
-		UINT64 initialValue{ 0 };
-		ComPtr<ID3D12Fence> fence;
-		if (FAILED(device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.ReleaseAndGetAddressOf()))))
-		{
-			throw(runtime_error{ "Error creating fence." });
-		}
-
-		fences.push_back(fence);
-		fenceValues.push_back(initialValue);
-	}
-}
-
-void HelloTeapotDemo::createFenceEvents()
-{
-	for (UINT i{ 0 }; i < bufferCount; i++)
-	{
-		HANDLE fenceEventHandle{ CreateEvent(nullptr, FALSE, FALSE, nullptr) };
-		if (fenceEventHandle == NULL)
-		{
-			throw(runtime_error{ "Error creating fence event." });
-		}
-
-		fenceEventHandles.push_back(fenceEventHandle);
-	}
-}
-
-void HelloTeapotDemo::createControlPointsBuffers()
+void HelloTeapotDemo::createControlPointsBuffer()
 {
 	UINT elementSize{ static_cast<UINT>(sizeof(decltype(TeapotData::points)::value_type)) };
 
@@ -635,30 +562,4 @@ void HelloTeapotDemo::createScissorRect()
 	scissorRect.top = 0;
 	scissorRect.right = rect.right - rect.left;
 	scissorRect.bottom = rect.bottom - rect.top;
-}
-
-void HelloTeapotDemo::waitForPreviousFrame()
-{
-	UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
-	UINT64 fenceValue{ fenceValues[frameIndex] };
-	ComPtr<ID3D12Fence> fence{ fences[frameIndex] };
-	HANDLE fenceEventHandle{ fenceEventHandles[frameIndex] };
-
-	//++fenceValue;
-
-	/*if (FAILED(commandQueue->Signal(fence.Get(), fenceValue)))
-	{
-		throw(runtime_error{ "Failed signal." });
-	}*/
-
-	if (FAILED(fence->SetEventOnCompletion(fenceValue, fenceEventHandle)))
-	{
-		throw(runtime_error{ "Failed set event on completion." });
-	}
-
-	DWORD wait{ WaitForSingleObject(fenceEventHandle, 10000) };
-	if (wait != WAIT_OBJECT_0)
-	{
-		throw(runtime_error{ "Failed WaitForSingleObject()." });
-	}
 }

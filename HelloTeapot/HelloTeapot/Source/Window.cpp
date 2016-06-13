@@ -61,6 +61,17 @@ POINT Window::getMousePosition()
 	return p;
 }
 
+POINT Window::getSize()
+{
+	RECT rect;
+	if (!GetClientRect(hWnd, &rect))
+	{
+		throw(runtime_error{ "Error getting window size." });
+	}
+	
+	return { rect.right - rect.left, rect.bottom - rect.top };
+}
+
 LRESULT CALLBACK Window::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	Window* window{ reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA)) };

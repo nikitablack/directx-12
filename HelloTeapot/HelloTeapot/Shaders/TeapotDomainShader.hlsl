@@ -1,5 +1,7 @@
 #include "TeapotCommon.hlslinc"
 
+// http://www.gdcvault.com/play/1012740/direct3d
+
 struct ConstantBufferPerObj
 {
 	row_major float4x4 wvpMat;
@@ -26,20 +28,12 @@ float4 dBernsteinBasis(float t)
 
 float3 EvaluateBezier(const OutputPatch<VertexData, NUM_CONTROL_POINTS> bezpatch, float4 BasisU, float4 BasisV)
 {
-	// This function essentially does this: Value(u,v) = S S Bm(u) Bn(v) G
 	float3 Value = float3(0, 0, 0);
-	Value = BasisV.x * (bezpatch[0].pos * BasisU.x +
-		bezpatch[1].pos * BasisU.y + bezpatch[2].pos *
-		BasisU.z + bezpatch[3].pos * BasisU.w);
-	Value += BasisV.y * (bezpatch[4].pos * BasisU.x +
-		bezpatch[5].pos * BasisU.y + bezpatch[6].pos *
-		BasisU.z + bezpatch[7].pos * BasisU.w);
-	Value += BasisV.z * (bezpatch[8].pos * BasisU.x +
-		bezpatch[9].pos * BasisU.y + bezpatch[10].pos *
-		BasisU.z + bezpatch[11].pos * BasisU.w);
-	Value += BasisV.w * (bezpatch[12].pos * BasisU.x +
-		bezpatch[13].pos * BasisU.y + bezpatch[14].pos *
-		BasisU.z + bezpatch[15].pos * BasisU.w);
+	Value = BasisV.x * (bezpatch[0].pos * BasisU.x + bezpatch[1].pos * BasisU.y + bezpatch[2].pos * BasisU.z + bezpatch[3].pos * BasisU.w);
+	Value += BasisV.y * (bezpatch[4].pos * BasisU.x + bezpatch[5].pos * BasisU.y + bezpatch[6].pos * BasisU.z + bezpatch[7].pos * BasisU.w);
+	Value += BasisV.z * (bezpatch[8].pos * BasisU.x + bezpatch[9].pos * BasisU.y + bezpatch[10].pos * BasisU.z + bezpatch[11].pos * BasisU.w);
+	Value += BasisV.w * (bezpatch[12].pos * BasisU.x + bezpatch[13].pos * BasisU.y + bezpatch[14].pos * BasisU.z + bezpatch[15].pos * BasisU.w);
+
 	return Value;
 }
 
@@ -51,8 +45,10 @@ float4 main(PatchConstantData input, float2 domain : SV_DomainLocation, const Ou
 	float4 BasisV = BernsteinBasis(domain.y);
 	float4 dBasisU = dBernsteinBasis(domain.x);
 	float4 dBasisV = dBernsteinBasis(domain.y);
+
 	// Evaluate the surface position for this vertex
 	float3 WorldPos = EvaluateBezier(patch, BasisU, BasisV);
+
 	// Evaluate the tangent space for this vertex (using derivatives)
 	float3 Tangent = EvaluateBezier(patch, dBasisU, BasisV);
 	float3 BiTangent = EvaluateBezier(patch, BasisU, dBasisV);

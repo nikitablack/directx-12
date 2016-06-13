@@ -5,15 +5,20 @@
 using namespace std;
 using namespace Microsoft::WRL;
 
-Graphics::Graphics(shared_ptr<Window> window, UINT bufferCount) : window{ window }, bufferCount{ bufferCount }, swapChainBuffers(bufferCount)
+Graphics::Graphics(UINT bufferCount, string name, LONG width, LONG height) : bufferCount{ bufferCount }, swapChainBuffers(bufferCount)
 {
-	createFactory();
+	createFactory(width, height);
 	getAdapter(false);
 	createDevice();
 	createCommandQueue();
 	createSwapChain();
 	getSwapChainBuffers();
 	createDescriptoprHeapRtv();
+}
+
+void Graphics::createWindow(string name, LONG width, LONG height)
+{
+	window = make_shared<Window>(width, height, name.c_str());
 }
 
 void Graphics::createFactory()
@@ -99,16 +104,12 @@ void Graphics::createCommandQueue()
 
 void Graphics::createSwapChain()
 {
-	RECT rect;
-	if (!GetClientRect(window->getHandle(), &rect))
-	{
-		throw(runtime_error{ "Error getting window size." });
-	}
+	POINT wSize(window->getSize());
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc;
 	ZeroMemory(&swapChainDesc, sizeof(swapChainDesc));
-	swapChainDesc.Width = static_cast<UINT>(rect.right - rect.left);
-	swapChainDesc.Height = static_cast<UINT>(rect.bottom - rect.top);
+	swapChainDesc.Width = static_cast<UINT>(wSize.x);
+	swapChainDesc.Height = static_cast<UINT>(wSize.y);
 	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc.Stereo = FALSE;
 	swapChainDesc.SampleDesc = { 1, 0 }; // no anti-aliasing
@@ -164,7 +165,7 @@ void Graphics::createDescriptoprHeapRtv()
 	}
 }
 
-ID3D12Device* Graphics::getDevice()
+/*ID3D12Device* Graphics::getDevice()
 {
 	return device.Get();
 }
@@ -174,22 +175,7 @@ ComPtr<ID3D12Device> Graphics::getDeviceCom()
 	return device;
 }
 
-/*ID3D11DeviceContext* Graphics::getContext()
-{
-	return context.Get();
-}*/
-
 IDXGISwapChain3* Graphics::getSwapChain()
 {
 	return swapChain.Get();
-}
-
-/*ID3D11RenderTargetView* Graphics::getRenderTargetView(uint32_t ind)
-{
-	return renderTargetViews[ind].Get();
-}
-
-ID3D11DepthStencilView* Graphics::getDepthStencilView()
-{
-	return depthStencilView.Get();
 }*/
