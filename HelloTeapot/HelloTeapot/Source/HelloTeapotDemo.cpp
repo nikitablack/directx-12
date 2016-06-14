@@ -208,6 +208,55 @@ void HelloTeapotDemo::render()
 	waitForPreviousFrame();
 }
 
+void HelloTeapotDemo::createInstanceBuffers()
+{
+	/*D3D12_DESCRIPTOR_HEAP_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+	desc.NumDescriptors = NUM_PARTS * bufferCount;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	desc.NodeMask = 0;
+
+	if (FAILED(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(descHeapCbv.ReleaseAndGetAddressOf()))))
+	{
+		throw(runtime_error{ "Error creating constant buffer heap." });
+	}*/
+
+	UINT elementSize{ static_cast<UINT>(sizeof(InstanceData)) };
+	UINT64 bufferSize{ elementSize * NUM_PARTS };
+
+	UINT descriptorSize{ device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) };
+
+	/*for (UINT i{ 0 }; i < bufferCount; ++i)
+	{
+		ComPtr<ID3D12Resource> instanceBuffer;
+		HRESULT hr = device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(instanceBuffer.ReleaseAndGetAddressOf()));
+
+		constBuffers.push_back(instanceBuffer);
+
+		for (int partIndex{ 0 }; partIndex < NUM_PARTS; ++partIndex)
+		{
+			D3D12_GPU_VIRTUAL_ADDRESS address{ instanceBuffer->GetGPUVirtualAddress() };
+			address += partIndex * elementSize;
+
+			D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
+			ZeroMemory(&desc, sizeof(desc));
+			desc.BufferLocation = address;
+			desc.SizeInBytes = elementSize;	// CB size is required to be 256-byte aligned.
+
+			D3D12_CPU_DESCRIPTOR_HANDLE d{ descHeapCbv->GetCPUDescriptorHandleForHeapStart() };
+			d.ptr += (i * NUM_PARTS + partIndex) * descriptorSize;
+			device->CreateConstantBufferView(&desc, d);
+		}
+	}*/
+}
+
 void HelloTeapotDemo::createControlPointsBuffer()
 {
 	UINT elementSize{ static_cast<UINT>(sizeof(decltype(TeapotData::points)::value_type)) };

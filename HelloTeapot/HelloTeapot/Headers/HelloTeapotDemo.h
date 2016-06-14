@@ -11,6 +11,14 @@ public:
 	void render();
 
 private:
+	struct InstanceData
+	{
+		DirectX::XMFLOAT4X4 modelMatrix;
+		XMFLOAT3 color; // should start at 16 bytes aligned offset
+	};
+
+private:
+	void createInstanceBuffers();
 	void createControlPointsBuffer();
 	void createControlPointsIndexBuffers();
 	void createCbvHeap();
@@ -34,6 +42,7 @@ private:
 	std::vector<D3D12_INDEX_BUFFER_VIEW> controlPointsIndexBufferViews;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descHeapCbv;
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> constBuffers;
+	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> instanceBuffers;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
 	Microsoft::WRL::ComPtr<ID3DBlob> vertexShaderBlob;
 	Microsoft::WRL::ComPtr<ID3DBlob> hullShaderBlob;
