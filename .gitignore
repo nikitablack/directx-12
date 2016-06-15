@@ -6,3 +6,9 @@
 Debug/
 Release/
 x64
+*.cso
+*.sln
+*.db
+*.opendb
+*.vcxproj
+*.filters
