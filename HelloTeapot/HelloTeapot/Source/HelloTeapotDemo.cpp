@@ -11,6 +11,8 @@ using namespace DirectX;
 
 HelloTeapotDemo::HelloTeapotDemo(UINT bufferCount, string name, LONG width, LONG height) : Graphics1{ bufferCount, name, width, height }
 {
+	createInstanceMatrixBuffers();
+	createInstanceColorsBuffers();
 	createControlPointsBuffer();
 	createControlPointsIndexBuffers();
 	createCbvHeap();
@@ -23,6 +25,28 @@ HelloTeapotDemo::HelloTeapotDemo(UINT bufferCount, string name, LONG width, LONG
 	createPipelineState();
 	createViewport();
 	createScissorRect();
+}
+
+void HelloTeapotDemo::updateInstanceMatrixData(int currPart, XMFLOAT4X4 globalRot, XMFLOAT3 instanceRot, XMFLOAT3 instanceScale)
+{
+	UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
+	ID3D12Resource* instanceBuffer{ instanceBuffers[frameIndex].Get() };
+	static UINT elementSize{ static_cast<UINT>(sizeof(InstanceData)) };
+
+	/*POINT windowSize(window->getSize());
+	POINT mousePoint(window->getMousePosition());
+	float pitch{ -XMConvertToRadians((mousePoint.x - (windowSize.x / 2.0f)) / (windowSize.x / 2.0f) * 180.0f) };
+	float roll{ XMConvertToRadians((mousePoint.y - (windowSize.y / 2.0f)) / (windowSize.y / 2.0f) * 180.0f) };*/
+
+	XMFLOAT4X4 modelMatrix;
+	XMMATRIX modelMatrixDX{ XMMatrixRotationRollPitchYaw(instanceRot.x, instanceRot.y, instanceRot.z) * XMMatrixScaling(instanceScale.x, instanceScale.y, instanceScale.z) * XMLoadFloat4x4(&globalRot) };
+	XMStoreFloat4x4(&modelMatrix, modelMatrixDX);
+
+	uint8_t* instanceDataBegin;
+	CD3DX12_RANGE readRange{ 0, 0 };
+	instanceBuffer->Map(0, &readRange, reinterpret_cast<void**>(&instanceDataBegin));
+	memcpy(&instanceDataBegin[currPart * elementSize], &modelMatrix, sizeof(modelMatrix));
+	instanceBuffer->Unmap(0, nullptr);
 }
 
 void HelloTeapotDemo::drawPart(int currPart, int indexView, XMFLOAT3 rot, XMFLOAT3 scale)
@@ -208,26 +232,26 @@ void HelloTeapotDemo::render()
 	waitForPreviousFrame();
 }
 
-void HelloTeapotDemo::createInstanceBuffers()
+void HelloTeapotDemo::createInstanceMatrixBuffers()
 {
-	/*D3D12_DESCRIPTOR_HEAP_DESC desc;
+	D3D12_DESCRIPTOR_HEAP_DESC desc;
 	ZeroMemory(&desc, sizeof(desc));
-	desc.NumDescriptors = NUM_PARTS * bufferCount;
+	desc.NumDescriptors = bufferCount;
 	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	desc.NodeMask = 0;
 
-	if (FAILED(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(descHeapCbv.ReleaseAndGetAddressOf()))))
+	if (FAILED(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(descHeapInstanceMatrix.ReleaseAndGetAddressOf()))))
 	{
-		throw(runtime_error{ "Error creating constant buffer heap." });
-	}*/
+		throw(runtime_error{ "Error creating instance matrix buffer heap." });
+	}
 
-	UINT elementSize{ static_cast<UINT>(sizeof(InstanceData)) };
+	UINT elementSize{ static_cast<UINT>(sizeof(XMFLOAT4X4)) };
 	UINT64 bufferSize{ elementSize * NUM_PARTS };
 
 	UINT descriptorSize{ device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) };
 
-	/*for (UINT i{ 0 }; i < bufferCount; ++i)
+	for (UINT i{ 0 }; i < bufferCount; ++i)
 	{
 		ComPtr<ID3D12Resource> instanceBuffer;
 		HRESULT hr = device->CreateCommittedResource(
@@ -238,23 +262,118 @@ void HelloTeapotDemo::createInstanceBuffers()
 			nullptr,
 			IID_PPV_ARGS(instanceBuffer.ReleaseAndGetAddressOf()));
 
-		constBuffers.push_back(instanceBuffer);
+		instanceMatrixBuffers.push_back(instanceBuffer);
 
-		for (int partIndex{ 0 }; partIndex < NUM_PARTS; ++partIndex)
-		{
-			D3D12_GPU_VIRTUAL_ADDRESS address{ instanceBuffer->GetGPUVirtualAddress() };
-			address += partIndex * elementSize;
+		D3D12_SHADER_RESOURCE_VIEW_DESC desc; // https://msdn.microsoft.com/en-us/library/windows/desktop/dn770406(v=vs.85).aspx
+		ZeroMemory(&desc, sizeof(desc));
+		desc.Format = DXGI_FORMAT_UNKNOWN; // https://msdn.microsoft.com/en-us/library/windows/desktop/dn859358(v=vs.85).aspx#shader_resource_view
+		desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		desc.Buffer.FirstElement = 0;
+		desc.Buffer.NumElements = NUM_PARTS;
+		desc.Buffer.StructureByteStride = elementSize;
+		desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
-			D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
-			ZeroMemory(&desc, sizeof(desc));
-			desc.BufferLocation = address;
-			desc.SizeInBytes = elementSize;	// CB size is required to be 256-byte aligned.
+		D3D12_CPU_DESCRIPTOR_HANDLE d{ descHeapInstanceMatrix->GetCPUDescriptorHandleForHeapStart() };
+		d.ptr += i * descriptorSize;
+		device->CreateShaderResourceView(instanceBuffer.Get(), &desc, d);
+	}
+}
 
-			D3D12_CPU_DESCRIPTOR_HANDLE d{ descHeapCbv->GetCPUDescriptorHandleForHeapStart() };
-			d.ptr += (i * NUM_PARTS + partIndex) * descriptorSize;
-			device->CreateConstantBufferView(&desc, d);
-		}
-	}*/
+void HelloTeapotDemo::createInstanceColorBuffers()
+{
+	UINT elementSize{ static_cast<UINT>(sizeof(decltype(TeapotData::patchesColors)::value_type)) };
+	UINT bufferSize{ static_cast<UINT>(TeapotData::patchesColors.size() * elementSize) };
+
+	HRESULT hr = device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(instanceColorBuffer.ReleaseAndGetAddressOf()));
+
+	if (FAILED(hr))
+	{
+		throw(runtime_error{ "Error creating instance color buffer heap." });
+	}
+
+	ComPtr<ID3D12Resource> uploadHeap;
+	hr = device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(uploadHeap.ReleaseAndGetAddressOf()));
+
+	if (FAILED(hr))
+	{
+		throw(runtime_error{ "Error creating instance color buffer upload heap." });
+	}
+
+	D3D12_SUBRESOURCE_DATA data;
+	ZeroMemory(&data, sizeof(data));
+	data.pData = TeapotData::patchesColors.data();
+	data.RowPitch = bufferSize;
+	data.SlicePitch = bufferSize;
+
+	ComPtr<ID3D12CommandAllocator> commandAllocator{ commandAllocators[0] };
+	commandList->Reset(commandAllocator.Get(), nullptr);
+	UpdateSubresources(commandList.Get(), instanceColorBuffer.Get(), uploadHeap.Get(), 0, 0, 1, &data);
+
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(instanceColorBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
+
+	commandList->Close();
+	vector<ID3D12CommandList*> ppCommandLists{ commandList.Get() };
+	commandQueue->ExecuteCommandLists(static_cast<UINT>(ppCommandLists.size()), ppCommandLists.data());
+
+	ComPtr<ID3D12Fence> fence{ fences[0] };
+	if (FAILED(commandQueue->Signal(fence.Get(), 1)))
+	{
+		throw(runtime_error{ "Error siganalling control points buffer uploaded." });
+	}
+
+	if (FAILED(fence->SetEventOnCompletion(1, fenceEventHandle)))
+	{
+		throw(runtime_error{ "Failed set event on completion." });
+	}
+
+	DWORD wait{ WaitForSingleObject(fenceEventHandle, 10000) };
+	if (wait != WAIT_OBJECT_0)
+	{
+		throw(runtime_error{ "Failed WaitForSingleObject()." });
+	}
+
+	if (FAILED(fence->Signal(0)))
+	{
+		throw(runtime_error{ "Error setting fence value." });
+	}
+
+	D3D12_DESCRIPTOR_HEAP_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+	desc.NumDescriptors = 1;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	desc.NodeMask = 0;
+
+	if (FAILED(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(descHeapInstanceColors.ReleaseAndGetAddressOf()))))
+	{
+		throw(runtime_error{ "Error creating instance color descriptor heap." });
+	}
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC desc; // https://msdn.microsoft.com/en-us/library/windows/desktop/dn770406(v=vs.85).aspx
+	ZeroMemory(&desc, sizeof(desc));
+	desc.Format = DXGI_FORMAT_UNKNOWN; // https://msdn.microsoft.com/en-us/library/windows/desktop/dn859358(v=vs.85).aspx#shader_resource_view
+	desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	desc.Buffer.FirstElement = 0;
+	desc.Buffer.NumElements = NUM_PARTS;
+	desc.Buffer.StructureByteStride = elementSize;
+	desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+	D3D12_CPU_DESCRIPTOR_HANDLE d{ descHeapInstanceColors->GetCPUDescriptorHandleForHeapStart() };
+	device->CreateShaderResourceView(instanceColorBuffer.Get(), &desc, d);
 }
 
 void HelloTeapotDemo::createControlPointsBuffer()
@@ -300,7 +419,6 @@ void HelloTeapotDemo::createControlPointsBuffer()
 	data.RowPitch = bufferSize;
 	data.SlicePitch = bufferSize;
 
-	//ComPtr<ID3D12GraphicsCommandList> commandList{ commandLists[0] };
 	ComPtr<ID3D12CommandAllocator> commandAllocator{ commandAllocators[0] };
 	commandList->Reset(commandAllocator.Get(), nullptr);
 	UpdateSubresources(commandList.Get(), controlPointsBuffer.Get(), uploadHeap.Get(), 0, 0, 1, &data);
