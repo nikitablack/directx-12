@@ -1,7 +1,7 @@
 #include <stdexcept>
 #include <d3dcompiler.h>
 #include "TeapotTutorial.h"
-#include "d3dx12.h"
+//#include "d3dx12.h"
 #include "TeapotData.h"
 #include "Window.h"
 #include "Utils.h"
@@ -147,8 +147,8 @@ void TeapotTutorial::render()
 	XMFLOAT4X4 mvpMatrix;
 	XMStoreFloat4x4(&mvpMatrix, modelMatrixDX * viewProjMatrixDX);
 
+	D3D12_RANGE readRange = {0, 0};
 	uint8_t* cbvDataBegin;
-	CD3DX12_RANGE readRange(0, 0);
 	constBuffer->Map(0, &readRange, reinterpret_cast<void**>(&cbvDataBegin));
 	memcpy(&cbvDataBegin[frameIndex * constDataSizeAligned], &mvpMatrix, sizeof(mvpMatrix));
 	constBuffer->Unmap(0, nullptr);
@@ -213,10 +213,32 @@ void TeapotTutorial::createConstantBuffer()
 	UINT elementSizeAligned{ (sizeof(XMFLOAT4X4) + 255) & ~255 };
 	UINT64 bufferSize{ elementSizeAligned * bufferCount };
 
+	D3D12_HEAP_PROPERTIES heapProps;
+	ZeroMemory(&heapProps, sizeof(heapProps));
+	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	heapProps.CreationNodeMask = 1;
+	heapProps.VisibleNodeMask = 1;
+
+	D3D12_RESOURCE_DESC resourceDesc;
+	ZeroMemory(&resourceDesc, sizeof(resourceDesc));
+	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	resourceDesc.Alignment = 0;
+	resourceDesc.Width = bufferSize;
+	resourceDesc.Height = 1;
+	resourceDesc.DepthOrArraySize = 1;
+	resourceDesc.MipLevels = 1;
+	resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+	resourceDesc.SampleDesc.Count = 1;
+	resourceDesc.SampleDesc.Quality = 0;
+	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
 	HRESULT hr{ device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		&heapProps, // CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+		&resourceDesc, // CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(constBuffer.ReleaseAndGetAddressOf())

@@ -22,8 +22,8 @@ StructuredBuffer<PatchColor> patchColors : register(t1);
 
 struct PatchConstantData
 {
-	float EdgeTessFactor[4] : SV_TessFactor;
-	float InsideTessFactor[2] : SV_InsideTessFactor;
+	float edgeTessFactor[4] : SV_TessFactor;
+	float insideTessFactor[2] : SV_InsideTessFactor;
 };
 
 struct HullToDomain
@@ -46,48 +46,33 @@ float4 BernsteinBasis(float t)
 		t * t * t);						// t3
 }
 
-float4 dBernsteinBasis(float t)
+float3 evaluateBezier(const OutputPatch<HullToDomain, NUM_CONTROL_POINTS> bezpatch, float4 basisU, float4 basisV)
 {
-	float invT = 1.0f - t;
-	return float4(-3 * invT * invT,		// -3(1-t)2
-		3 * invT * invT - 6 * t * invT,	// 3(1-t)-6t(1-t)
-		6 * t * invT - 3 * t * t,		// 6t(1-t) – 3t2
-		3 * t * t);						// 3t2
-}
+	float3 value = float3(0, 0, 0);
+	value = basisV.x * (bezpatch[0].pos * basisU.x + bezpatch[1].pos * basisU.y + bezpatch[2].pos * basisU.z + bezpatch[3].pos * basisU.w);
+	value += basisV.y * (bezpatch[4].pos * basisU.x + bezpatch[5].pos * basisU.y + bezpatch[6].pos * basisU.z + bezpatch[7].pos * basisU.w);
+	value += basisV.z * (bezpatch[8].pos * basisU.x + bezpatch[9].pos * basisU.y + bezpatch[10].pos * basisU.z + bezpatch[11].pos * basisU.w);
+	value += basisV.w * (bezpatch[12].pos * basisU.x + bezpatch[13].pos * basisU.y + bezpatch[14].pos * basisU.z + bezpatch[15].pos * basisU.w);
 
-float3 EvaluateBezier(const OutputPatch<HullToDomain, NUM_CONTROL_POINTS> bezpatch, float4 BasisU, float4 BasisV)
-{
-	float3 Value = float3(0, 0, 0);
-	Value = BasisV.x * (bezpatch[0].pos * BasisU.x + bezpatch[1].pos * BasisU.y + bezpatch[2].pos * BasisU.z + bezpatch[3].pos * BasisU.w);
-	Value += BasisV.y * (bezpatch[4].pos * BasisU.x + bezpatch[5].pos * BasisU.y + bezpatch[6].pos * BasisU.z + bezpatch[7].pos * BasisU.w);
-	Value += BasisV.z * (bezpatch[8].pos * BasisU.x + bezpatch[9].pos * BasisU.y + bezpatch[10].pos * BasisU.z + bezpatch[11].pos * BasisU.w);
-	Value += BasisV.w * (bezpatch[12].pos * BasisU.x + bezpatch[13].pos * BasisU.y + bezpatch[14].pos * BasisU.z + bezpatch[15].pos * BasisU.w);
-
-	return Value;
+	return value;
 }
 
 [domain("quad")]
-DomainToPixel main(PatchConstantData input, float2 domain : SV_DomainLocation, const OutputPatch<HullToDomain, NUM_CONTROL_POINTS> patch, uint PatchID : SV_PrimitiveID)
+DomainToPixel main(PatchConstantData input, float2 domain : SV_DomainLocation, const OutputPatch<HullToDomain, NUM_CONTROL_POINTS> patch, uint patchID : SV_PrimitiveID)
 {
 	// Evaluate the basis functions at (u, v)
-	float4 BasisU = BernsteinBasis(domain.x);
-	float4 BasisV = BernsteinBasis(domain.y);
-	float4 dBasisU = dBernsteinBasis(domain.x);
-	float4 dBasisV = dBernsteinBasis(domain.y);
+	float4 basisU = BernsteinBasis(domain.x);
+	float4 basisV = BernsteinBasis(domain.y);
 
 	// Evaluate the surface position for this vertex
-	float3 WorldPos = EvaluateBezier(patch, BasisU, BasisV);
+	float3 localPos = evaluateBezier(patch, basisU, basisV);
 
-	// Evaluate the tangent space for this vertex (using derivatives)
-	float3 Tangent = EvaluateBezier(patch, dBasisU, BasisV);
-	float3 BiTangent = EvaluateBezier(patch, BasisU, dBasisV);
-	float3 Norm = normalize(cross(Tangent, BiTangent));
+	float4x4 transform = patchTransforms[patchID].transform;
+	float4 localPosTransformed = mul(float4(localPos, 1.0f), transform);
 
-	float4x4 transform = patchTransforms[PatchID].transform;
-	float4 WorldPosTransformed = mul(float4(WorldPos, 1.0f), transform);
 	DomainToPixel output;
-	output.pos = mul(WorldPosTransformed, constPerObject.wvpMat);
-	output.color = patchColors[PatchID].color;
+	output.pos = mul(localPosTransformed, constPerObject.wvpMat);
+	output.color = patchColors[patchID].color;
 
 	return output;
 }

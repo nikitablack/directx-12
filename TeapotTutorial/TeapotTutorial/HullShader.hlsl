@@ -14,8 +14,8 @@ struct VertexToHull
 
 struct PatchConstantData
 {
-	float EdgeTessFactor[4] : SV_TessFactor;
-	float InsideTessFactor[2] : SV_InsideTessFactor;
+	float edgeTessFactor[4] : SV_TessFactor;
+	float insideTessFactor[2] : SV_InsideTessFactor;
 };
 
 struct HullToDomain
@@ -23,18 +23,18 @@ struct HullToDomain
 	float3 pos : POSITION;
 };
 
-PatchConstantData CalculatePatchConstants(InputPatch<VertexToHull, NUM_CONTROL_POINTS> ip, uint patchID : SV_PrimitiveID)
+PatchConstantData CalculatePatchConstants()
 {
-	PatchConstantData Output;
+	PatchConstantData output;
 
-	Output.EdgeTessFactor[0] = tessFactors.edge;
-	Output.EdgeTessFactor[1] = tessFactors.edge;
-	Output.EdgeTessFactor[2] = tessFactors.edge;
-	Output.EdgeTessFactor[3] = tessFactors.edge;
-	Output.InsideTessFactor[0] = tessFactors.inside;
-	Output.InsideTessFactor[1] = tessFactors.inside;
+	output.edgeTessFactor[0] = tessFactors.edge;
+	output.edgeTessFactor[1] = tessFactors.edge;
+	output.edgeTessFactor[2] = tessFactors.edge;
+	output.edgeTessFactor[3] = tessFactors.edge;
+	output.insideTessFactor[0] = tessFactors.inside;
+	output.insideTessFactor[1] = tessFactors.inside;
 
-	return Output;
+	return output;
 }
 
 [domain("quad")]
@@ -42,10 +42,10 @@ PatchConstantData CalculatePatchConstants(InputPatch<VertexToHull, NUM_CONTROL_P
 [outputtopology("triangle_cw")]
 [outputcontrolpoints(NUM_CONTROL_POINTS)]
 [patchconstantfunc("CalculatePatchConstants")]
-HullToDomain main(InputPatch<VertexToHull, NUM_CONTROL_POINTS> ip, uint i : SV_OutputControlPointID, uint patchID : SV_PrimitiveID)
+HullToDomain main(InputPatch<VertexToHull, NUM_CONTROL_POINTS> input, uint i : SV_OutputControlPointID)
 {
 	HullToDomain output;
-	output.pos = ip[i].pos;
+	output.pos = input[i].pos;
 
 	return output;
 }
