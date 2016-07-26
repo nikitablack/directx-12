@@ -175,4 +175,56 @@ namespace teapot_tutorial
 
 		return descHeap;
 	}
+
+	inline UINT64 UpdateSubresources(
+		_In_ ID3D12GraphicsCommandList* pCmdList,
+		_In_ ID3D12Resource* pDestinationResource,
+		_In_ ID3D12Resource* pIntermediate,
+		_In_reads_(1) D3D12_SUBRESOURCE_DATA srcData)
+	{
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+		UINT numRows; // ?
+		UINT64 rowSizesInBytes; // ?
+		UINT64 RequiredSize;
+
+		D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
+		ID3D12Device* pDevice;
+		pDestinationResource->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
+		pDevice->GetCopyableFootprints(&Desc, 0, 1, 0, &footprint, &numRows, &rowSizesInBytes, &RequiredSize);
+		pDevice->Release();
+
+		UINT64 Result = UpdateSubresources(pCmdList, pDestinationResource, pIntermediate, RequiredSize, footprint, numRows, rowSizesInBytes, srcData);
+		
+		return Result;
+	}
+
+	inline UINT64 UpdateSubresources(
+		_In_ ID3D12GraphicsCommandList* pCmdList,
+		_In_ ID3D12Resource* pDestinationResource,
+		_In_ ID3D12Resource* pIntermediate,
+		UINT64 RequiredSize,
+		_In_reads_(1) const D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint,
+		_In_reads_(1) const UINT numRows,
+		_In_reads_(1) const UINT64 rowSizesInBytes,
+		_In_reads_(1) const D3D12_SUBRESOURCE_DATA srcData)
+	{
+		BYTE* pData;
+		HRESULT hr{ pIntermediate->Map(0, NULL, reinterpret_cast<void**>(&pData)) };
+		if (FAILED(hr))
+		{
+			throw(runtime_error{ "Failed map intermediate resource." });
+		}
+
+		if (rowSizesInBytes >(SIZE_T)-1) return 0;
+
+		D3D12_MEMCPY_DEST DestData = { pData + footprint.Offset, footprint.Footprint.RowPitch, footprint.Footprint.RowPitch * numRows };
+		MemcpySubresource(&DestData, &srcData, (SIZE_T)rowSizesInBytes, numRows, footprint.Footprint.Depth);
+		
+		pIntermediate->Unmap(0, NULL);
+
+		CD3DX12_BOX SrcBox(UINT(footprint.Offset), UINT(footprint.Offset + footprint.Footprint.Width));
+		pCmdList->CopyBufferRegion(pDestinationResource, 0, pIntermediate, footprint.Offset, footprint.Footprint.Width);
+		
+		return RequiredSize;
+	}
 }
