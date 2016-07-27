@@ -1,7 +1,6 @@
 #include "Graphics.h"
 #include <stdexcept>
 #include "Window.h"
-//#include "d3dx12.h"
 
 using namespace std;
 using namespace Microsoft::WRL;
@@ -194,14 +193,14 @@ void Graphics::createDepthStencilBuffer()
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-	HRESULT hr = device->CreateCommittedResource(
+	HRESULT hr{ device->CreateCommittedResource(
 		&heapProps, // CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&resourceDesc, // CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, wSize.x, wSize.y, 1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL),
 		D3D12_RESOURCE_STATE_DEPTH_WRITE,
 		&depthOptimizedClearValue,
 		IID_PPV_ARGS(depthStencilBuffer.ReleaseAndGetAddressOf())
-	);
+	) };
 
 	if (FAILED(hr))
 	{

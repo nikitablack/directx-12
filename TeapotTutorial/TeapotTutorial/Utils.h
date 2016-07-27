@@ -4,7 +4,6 @@
 #include <d3d12.h>
 #include <vector>
 #include <string>
-//#include "d3dx12.h"
 
 namespace teapot_tutorial
 {
@@ -118,7 +117,7 @@ namespace teapot_tutorial
 		}
 
 		commandList->Reset(commandAllocator.Get(), nullptr);
-		UpdateSubresources(commandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), subresourceData);
+		updateBuffer(commandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), subresourceData);
 
 		// CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER)
 		D3D12_RESOURCE_BARRIER barrierDesc;
@@ -156,7 +155,7 @@ namespace teapot_tutorial
 	}
 
 	template<typename T>
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> createDescriptorHeapAndSrv(ID3D12Device* device, ID3D12DescriptorHeap* descHeap, int offset, ID3D12Resource* resource, size_t numElements)
+	void createDescriptorHeapAndSrv(ID3D12Device* device, ID3D12DescriptorHeap* descHeap, int offset, ID3D12Resource* resource, size_t numElements)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc; // https://msdn.microsoft.com/en-us/library/windows/desktop/dn770406(v=vs.85).aspx
 		ZeroMemory(&srvDesc, sizeof(srvDesc));
@@ -172,8 +171,6 @@ namespace teapot_tutorial
 		D3D12_CPU_DESCRIPTOR_HANDLE d{ descHeap->GetCPUDescriptorHandleForHeapStart() };
 		d.ptr += descriptorSize * offset;
 		device->CreateShaderResourceView(resource, &srvDesc, d);
-
-		return descHeap;
 	}
 
 	UINT64 UpdateSubresources2(
@@ -186,47 +183,38 @@ namespace teapot_tutorial
 		_In_reads_(1) const UINT64 rowSizesInBytes,
 		_In_reads_(1) const D3D12_SUBRESOURCE_DATA srcData)
 	{
-		pDestinationResource->GetDesc();
-		BYTE* pData;
-		HRESULT hr{ pIntermediate->Map(0, NULL, reinterpret_cast<void**>(&pData)) };
-		if (FAILED(hr))
+		void* pData;
+		if (FAILED(pIntermediate->Map(0, NULL, &pData)))
 		{
 			throw(std::runtime_error{ "Failed map intermediate resource." });
 		}
 
-		if (rowSizesInBytes >(SIZE_T)-1) return 0;
-		pDestinationResource->GetDesc();
-		D3D12_MEMCPY_DEST DestData = { pData + footprint.Offset, footprint.Footprint.RowPitch, footprint.Footprint.RowPitch * numRows };
-		//MemcpySubresource(&DestData, &srcData, (SIZE_T)rowSizesInBytes, numRows, footprint.Footprint.Depth);
 		memcpy(pData, srcData.pData, rowSizesInBytes);
 		pIntermediate->Unmap(0, NULL);
 
-		
-		//CD3DX12_BOX SrcBox(UINT(footprint.Offset), UINT(footprint.Offset + footprint.Footprint.Width));
 		pCmdList->CopyBufferRegion(pDestinationResource, 0, pIntermediate, footprint.Offset, footprint.Footprint.Width);
 
 		return RequiredSize;
 	}
 
-	UINT64 UpdateSubresources(
-		_In_ ID3D12GraphicsCommandList* pCmdList,
-		_In_ ID3D12Resource* pDestinationResource,
-		_In_ ID3D12Resource* pIntermediate,
-		_In_reads_(1) D3D12_SUBRESOURCE_DATA srcData)
+	void updateBuffer(ID3D12GraphicsCommandList* pCmdList, ID3D12Resource* pDestinationResource, ID3D12Resource* pIntermediate, D3D12_SUBRESOURCE_DATA srcData)
 	{
 		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint; // 0, DXGI_FORMAT_UNKNOWN, 1416, 1, 1, 1536
-		UINT numRows; // ? 1
-		UINT64 rowSizesInBytes; // ? 1416
-		UINT64 RequiredSize; // 1416
 
-		D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
-		ID3D12Device* pDevice;
-		pDestinationResource->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
-		pDevice->GetCopyableFootprints(&Desc, 0, 1, 0, &footprint, &numRows, &rowSizesInBytes, &RequiredSize);
-		pDevice->Release();
+		D3D12_RESOURCE_DESC resourceDesc = pDestinationResource->GetDesc();
+		Microsoft::WRL::ComPtr<ID3D12Device> device;
+		pDestinationResource->GetDevice(IID_PPV_ARGS(device.ReleaseAndGetAddressOf()));
+		device->GetCopyableFootprints(&resourceDesc, 0, 1, 0, &footprint, NULL, NULL, NULL);
 		
-		UINT64 Result = UpdateSubresources2(pCmdList, pDestinationResource, pIntermediate, RequiredSize, footprint, numRows, rowSizesInBytes, srcData);
-		
-		return Result;
+		void* pData;
+		if (FAILED(pIntermediate->Map(0, NULL, &pData)))
+		{
+			throw(std::runtime_error{ "Failed map intermediate resource." });
+		}
+
+		memcpy(pData, srcData.pData, footprint.Footprint.Width);
+		pIntermediate->Unmap(0, NULL);
+
+		pCmdList->CopyBufferRegion(pDestinationResource, 0, pIntermediate, footprint.Offset, footprint.Footprint.Width);
 	}
 }

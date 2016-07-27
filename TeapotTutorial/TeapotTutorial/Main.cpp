@@ -9,7 +9,6 @@
 
 using namespace std;
 using namespace Microsoft::WRL;
-//using namespace DirectX;
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {

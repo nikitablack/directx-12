@@ -1,7 +1,6 @@
 #include <stdexcept>
 #include <d3dcompiler.h>
 #include "TeapotTutorial.h"
-//#include "d3dx12.h"
 #include "TeapotData.h"
 #include "Window.h"
 #include "Utils.h"
@@ -32,8 +31,8 @@ TeapotTutorial::TeapotTutorial(UINT bufferCount, string name, LONG width, LONG h
 
 	createTransformsAndColorsDescHeap();
 	
-	/*transformsDescHeap = */teapot_tutorial::createDescriptorHeapAndSrv<TransformType>(device.Get(), transformsAndColorsDescHeap.Get(), 0, transformsBuffer.Get(), TeapotData::patchesTransforms.size());
-	/*colorsDescHeap = */teapot_tutorial::createDescriptorHeapAndSrv<ColorType>(device.Get(), transformsAndColorsDescHeap.Get(), 1, colorsBuffer.Get(), TeapotData::patchesColors.size());
+	teapot_tutorial::createDescriptorHeapAndSrv<TransformType>(device.Get(), transformsAndColorsDescHeap.Get(), 0, transformsBuffer.Get(), TeapotData::patchesTransforms.size());
+	teapot_tutorial::createDescriptorHeapAndSrv<ColorType>(device.Get(), transformsAndColorsDescHeap.Get(), 1, colorsBuffer.Get(), TeapotData::patchesColors.size());
 
 	createConstantBuffer();
 	createShaders();
@@ -108,7 +107,7 @@ void TeapotTutorial::render()
 
 	commandList->OMSetRenderTargets(1, &descHandleRtv, FALSE, &descHandleDepthStencil);
 
-	static float clearColor[]{ 0.0f, 0.5f, 0.0f, 1.0f };
+	static float clearColor[]{ 0.1f, 0.1f, 0.1f, 1.0f };
 	commandList->ClearRenderTargetView(descHandleRtv, clearColor, 0, nullptr);
 	commandList->ClearDepthStencilView(descHeapDepthStencil->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST);

@@ -23,7 +23,7 @@ struct HullToDomain
 	float3 pos : POSITION;
 };
 
-PatchConstantData CalculatePatchConstants()
+PatchConstantData calculatePatchConstants()
 {
 	PatchConstantData output;
 
@@ -38,10 +38,10 @@ PatchConstantData CalculatePatchConstants()
 }
 
 [domain("quad")]
-[partitioning("fractional_odd")]
+[partitioning("integer")]
 [outputtopology("triangle_cw")]
 [outputcontrolpoints(NUM_CONTROL_POINTS)]
-[patchconstantfunc("CalculatePatchConstants")]
+[patchconstantfunc("calculatePatchConstants")]
 HullToDomain main(InputPatch<VertexToHull, NUM_CONTROL_POINTS> input, uint i : SV_OutputControlPointID)
 {
 	HullToDomain output;
