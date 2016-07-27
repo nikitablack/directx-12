@@ -4,7 +4,7 @@
 #include <d3d12.h>
 #include <vector>
 #include <string>
-#include "d3dx12.h"
+//#include "d3dx12.h"
 
 namespace teapot_tutorial
 {
@@ -118,7 +118,7 @@ namespace teapot_tutorial
 		}
 
 		commandList->Reset(commandAllocator.Get(), nullptr);
-		UpdateSubresources(commandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), 0, 0, 1, &subresourceData);
+		UpdateSubresources(commandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), subresourceData);
 
 		// CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER)
 		D3D12_RESOURCE_BARRIER barrierDesc;
@@ -176,29 +176,7 @@ namespace teapot_tutorial
 		return descHeap;
 	}
 
-	inline UINT64 UpdateSubresources(
-		_In_ ID3D12GraphicsCommandList* pCmdList,
-		_In_ ID3D12Resource* pDestinationResource,
-		_In_ ID3D12Resource* pIntermediate,
-		_In_reads_(1) D3D12_SUBRESOURCE_DATA srcData)
-	{
-		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
-		UINT numRows; // ?
-		UINT64 rowSizesInBytes; // ?
-		UINT64 RequiredSize;
-
-		D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
-		ID3D12Device* pDevice;
-		pDestinationResource->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
-		pDevice->GetCopyableFootprints(&Desc, 0, 1, 0, &footprint, &numRows, &rowSizesInBytes, &RequiredSize);
-		pDevice->Release();
-
-		UINT64 Result = UpdateSubresources(pCmdList, pDestinationResource, pIntermediate, RequiredSize, footprint, numRows, rowSizesInBytes, srcData);
-		
-		return Result;
-	}
-
-	inline UINT64 UpdateSubresources(
+	UINT64 UpdateSubresources2(
 		_In_ ID3D12GraphicsCommandList* pCmdList,
 		_In_ ID3D12Resource* pDestinationResource,
 		_In_ ID3D12Resource* pIntermediate,
@@ -208,23 +186,47 @@ namespace teapot_tutorial
 		_In_reads_(1) const UINT64 rowSizesInBytes,
 		_In_reads_(1) const D3D12_SUBRESOURCE_DATA srcData)
 	{
+		pDestinationResource->GetDesc();
 		BYTE* pData;
 		HRESULT hr{ pIntermediate->Map(0, NULL, reinterpret_cast<void**>(&pData)) };
 		if (FAILED(hr))
 		{
-			throw(runtime_error{ "Failed map intermediate resource." });
+			throw(std::runtime_error{ "Failed map intermediate resource." });
 		}
 
 		if (rowSizesInBytes >(SIZE_T)-1) return 0;
-
+		pDestinationResource->GetDesc();
 		D3D12_MEMCPY_DEST DestData = { pData + footprint.Offset, footprint.Footprint.RowPitch, footprint.Footprint.RowPitch * numRows };
-		MemcpySubresource(&DestData, &srcData, (SIZE_T)rowSizesInBytes, numRows, footprint.Footprint.Depth);
-		
+		//MemcpySubresource(&DestData, &srcData, (SIZE_T)rowSizesInBytes, numRows, footprint.Footprint.Depth);
+		memcpy(pData, srcData.pData, rowSizesInBytes);
 		pIntermediate->Unmap(0, NULL);
 
-		CD3DX12_BOX SrcBox(UINT(footprint.Offset), UINT(footprint.Offset + footprint.Footprint.Width));
-		pCmdList->CopyBufferRegion(pDestinationResource, 0, pIntermediate, footprint.Offset, footprint.Footprint.Width);
 		
+		//CD3DX12_BOX SrcBox(UINT(footprint.Offset), UINT(footprint.Offset + footprint.Footprint.Width));
+		pCmdList->CopyBufferRegion(pDestinationResource, 0, pIntermediate, footprint.Offset, footprint.Footprint.Width);
+
 		return RequiredSize;
+	}
+
+	UINT64 UpdateSubresources(
+		_In_ ID3D12GraphicsCommandList* pCmdList,
+		_In_ ID3D12Resource* pDestinationResource,
+		_In_ ID3D12Resource* pIntermediate,
+		_In_reads_(1) D3D12_SUBRESOURCE_DATA srcData)
+	{
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint; // 0, DXGI_FORMAT_UNKNOWN, 1416, 1, 1, 1536
+		UINT numRows; // ? 1
+		UINT64 rowSizesInBytes; // ? 1416
+		UINT64 RequiredSize; // 1416
+
+		D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
+		ID3D12Device* pDevice;
+		pDestinationResource->GetDevice(__uuidof(*pDevice), reinterpret_cast<void**>(&pDevice));
+		pDevice->GetCopyableFootprints(&Desc, 0, 1, 0, &footprint, &numRows, &rowSizesInBytes, &RequiredSize);
+		pDevice->Release();
+		
+		UINT64 Result = UpdateSubresources2(pCmdList, pDestinationResource, pIntermediate, RequiredSize, footprint, numRows, rowSizesInBytes, srcData);
+		
+		return Result;
 	}
 }
