@@ -155,7 +155,7 @@ namespace teapot_tutorial
 	}
 
 	template<typename T>
-	void createDescriptorHeapAndSrv(ID3D12Device* device, ID3D12DescriptorHeap* descHeap, int offset, ID3D12Resource* resource, size_t numElements)
+	void createSrv(ID3D12Device* device, ID3D12DescriptorHeap* descHeap, int offset, ID3D12Resource* resource, size_t numElements)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc; // https://msdn.microsoft.com/en-us/library/windows/desktop/dn770406(v=vs.85).aspx
 		ZeroMemory(&srvDesc, sizeof(srvDesc));

@@ -9,7 +9,7 @@ using namespace std;
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
-TeapotTutorial::TeapotTutorial(UINT bufferCount, string name, LONG width, LONG height) : Graphics1{ bufferCount, name, width, height }
+TeapotTutorial::TeapotTutorial(UINT bufferCount, string name, LONG width, LONG height) : Graphics{ bufferCount, name, width, height }
 {
 	using PointType = decltype(TeapotData::points)::value_type;
 	using TransformType = decltype(TeapotData::patchesTransforms)::value_type;
@@ -31,8 +31,8 @@ TeapotTutorial::TeapotTutorial(UINT bufferCount, string name, LONG width, LONG h
 
 	createTransformsAndColorsDescHeap();
 	
-	teapot_tutorial::createDescriptorHeapAndSrv<TransformType>(device.Get(), transformsAndColorsDescHeap.Get(), 0, transformsBuffer.Get(), TeapotData::patchesTransforms.size());
-	teapot_tutorial::createDescriptorHeapAndSrv<ColorType>(device.Get(), transformsAndColorsDescHeap.Get(), 1, colorsBuffer.Get(), TeapotData::patchesColors.size());
+	teapot_tutorial::createSrv<TransformType>(device.Get(), transformsAndColorsDescHeap.Get(), 0, transformsBuffer.Get(), TeapotData::patchesTransforms.size());
+	teapot_tutorial::createSrv<ColorType>(device.Get(), transformsAndColorsDescHeap.Get(), 1, colorsBuffer.Get(), TeapotData::patchesColors.size());
 
 	createConstantBuffer();
 	createShaders();
@@ -137,6 +137,8 @@ void TeapotTutorial::render()
 	UINT constDataSizeAligned{ (sizeof(XMFLOAT4X4) + 255) & ~255 };
 
 	POINT mousePoint(window->getMousePosition());
+	mousePoint.x = 210;
+	mousePoint.y = 50;
 	float pitch{ -XMConvertToRadians((mousePoint.x - (static_cast<float>(windowSize.x) / 2.0f)) / (static_cast<float>(windowSize.x) / 2.0f) * 180.0f) };
 	float roll{ XMConvertToRadians((mousePoint.y - (static_cast<float>(windowSize.y) / 2.0f)) / (static_cast<float>(windowSize.y) / 2.0f) * 180.0f) };
 
@@ -276,36 +278,47 @@ void TeapotTutorial::createShaders()
 
 void TeapotTutorial::createRootSignature()
 {
+	/* We're using 3 root parameters:
+	- root descriptor for domain shader's constant buffer
+	- 2 root constants for hull shader's constant buffer
+	- descriptor table for 2 structured buffers
+	*/
+
+	// this is the range of decriptors in the descriptor heap
 	D3D12_DESCRIPTOR_RANGE dsTransformAndColorSrvRange;
 	ZeroMemory(&dsTransformAndColorSrvRange, sizeof(dsTransformAndColorSrvRange));
-	dsTransformAndColorSrvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	dsTransformAndColorSrvRange.NumDescriptors = 2;
-	dsTransformAndColorSrvRange.BaseShaderRegister = 0;
-	dsTransformAndColorSrvRange.RegisterSpace = 0;
-	dsTransformAndColorSrvRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // todo
+	dsTransformAndColorSrvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // we're using structured buffers - it's a SRV
+	dsTransformAndColorSrvRange.NumDescriptors = 2; // we have 2 structured buffers and 2 descriptors
+	dsTransformAndColorSrvRange.BaseShaderRegister = 0; // we start from the first register (t0)
+	dsTransformAndColorSrvRange.RegisterSpace = 0; // this allows us to use the same register name if we use different space
+	dsTransformAndColorSrvRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	// root table parameter
 	D3D12_ROOT_PARAMETER dsTransformAndColorSrv;
 	ZeroMemory(&dsTransformAndColorSrv, sizeof(dsTransformAndColorSrv));
 	dsTransformAndColorSrv.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	dsTransformAndColorSrv.DescriptorTable = { 1, &dsTransformAndColorSrvRange };
-	dsTransformAndColorSrv.ShaderVisibility = D3D12_SHADER_VISIBILITY_DOMAIN;
+	dsTransformAndColorSrv.DescriptorTable = { 1, &dsTransformAndColorSrvRange }; // one range
+	dsTransformAndColorSrv.ShaderVisibility = D3D12_SHADER_VISIBILITY_DOMAIN; // only used in domain shader
 
+	// root descriptor parameter
 	D3D12_ROOT_PARAMETER dsObjCb;
 	ZeroMemory(&dsObjCb, sizeof(dsObjCb));
-	dsObjCb.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	dsObjCb.Descriptor = { 0, 0 };
-	dsObjCb.ShaderVisibility = D3D12_SHADER_VISIBILITY_DOMAIN;
+	dsObjCb.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // constant buffer
+	dsObjCb.Descriptor = { 0, 0 }; // first register (b0) in first register space
+	dsObjCb.ShaderVisibility = D3D12_SHADER_VISIBILITY_DOMAIN; // only used in domain shader
 
+	// root constants
 	D3D12_ROOT_PARAMETER hsTessFactorsCb;
 	ZeroMemory(&hsTessFactorsCb, sizeof(hsTessFactorsCb));
 	hsTessFactorsCb.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	hsTessFactorsCb.Constants = { 0, 0, 2 };
-	hsTessFactorsCb.ShaderVisibility = D3D12_SHADER_VISIBILITY_HULL;
+	hsTessFactorsCb.Constants = { 0, 0, 2 }; // 2 constants in first register (b0) in first register space
+	hsTessFactorsCb.ShaderVisibility = D3D12_SHADER_VISIBILITY_HULL; // only used in hull shader
 
 	vector<D3D12_ROOT_PARAMETER> rootParameters{ dsObjCb, hsTessFactorsCb, dsTransformAndColorSrv };
-
+	
+	// it's recommended to deny root signature access to the stages that are not interested in it
 	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags{
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | // we're using vertex and index buffers
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS |
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS
@@ -315,10 +328,11 @@ void TeapotTutorial::createRootSignature()
 	ZeroMemory(&rootSignatureDesc, sizeof(rootSignatureDesc));
 	rootSignatureDesc.NumParameters = static_cast<UINT>(rootParameters.size());
 	rootSignatureDesc.pParameters = rootParameters.data();
-	rootSignatureDesc.NumStaticSamplers = 0;
-	rootSignatureDesc.pStaticSamplers = nullptr;
+	rootSignatureDesc.NumStaticSamplers = 0; // samplers can be stored in root signature separately and consume no space
+	rootSignatureDesc.pStaticSamplers = nullptr; // we're not using texturing
 	rootSignatureDesc.Flags = rootSignatureFlags;
 
+	// we need to serialize first. This is useful because root siganture can be defined directly in a shader, not c++ app
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
 	if (FAILED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, signature.ReleaseAndGetAddressOf(), error.ReleaseAndGetAddressOf())))
@@ -326,6 +340,7 @@ void TeapotTutorial::createRootSignature()
 		throw(runtime_error{ "Error serializing root signature" });
 	}
 
+	// finally create the root signature
 	if (FAILED(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(rootSignature.ReleaseAndGetAddressOf()))))
 	{
 		throw(runtime_error{ "Error creating root signature" });

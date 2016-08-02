@@ -17,6 +17,10 @@ Graphics::Graphics(UINT bufferCount, string name, LONG width, LONG height) : buf
 	createDescriptoprHeapRtv();
 	createDepthStencilBuffer();
 	createDescriptorHeapDepthStencil();
+	createCommandAllocators();
+	createCommandList();
+	createFences();
+	createFenceEventHandle();
 }
 
 void Graphics::createWindow(string name, LONG width, LONG height)
@@ -75,8 +79,7 @@ void Graphics::getAdapter()
 
 void Graphics::createDevice()
 {
-	HRESULT hr{ D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)) };
-	if (FAILED(hr))
+	if (FAILED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device))))
 	{
 		throw(runtime_error{ "Error creating device." });
 	}
@@ -228,4 +231,74 @@ void Graphics::createDescriptorHeapDepthStencil()
 	depthStencilViewDesc.Flags = D3D12_DSV_FLAG_NONE;
 
 	device->CreateDepthStencilView(depthStencilBuffer.Get(), &depthStencilViewDesc, descHeapDepthStencil->GetCPUDescriptorHandleForHeapStart());
+}
+
+void Graphics::createCommandAllocators()
+{
+	for (UINT i{ 0 }; i < bufferCount; i++)
+	{
+		ComPtr<ID3D12CommandAllocator> commandAllocator;
+		if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(commandAllocator.ReleaseAndGetAddressOf()))))
+		{
+			throw(runtime_error{ "Error creating command allocator." });
+		}
+
+		commandAllocators.push_back(commandAllocator);
+	}
+}
+
+void Graphics::createCommandList()
+{
+	if (FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocators[0].Get(), nullptr, IID_PPV_ARGS(commandList.ReleaseAndGetAddressOf()))))
+	{
+		throw(runtime_error{ "Error creating command list." });
+	}
+
+	if (FAILED(commandList->Close()))
+	{
+		throw(runtime_error{ "Error closing command list." });
+	}
+}
+
+void Graphics::createFences()
+{
+	for (UINT i{ 0 }; i < bufferCount; i++)
+	{
+		UINT64 initialValue{ 0 };
+		ComPtr<ID3D12Fence> fence;
+		if (FAILED(device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.ReleaseAndGetAddressOf()))))
+		{
+			throw(runtime_error{ "Error creating fence." });
+		}
+
+		fences.push_back(fence);
+		fenceValues.push_back(initialValue);
+	}
+}
+
+void Graphics::createFenceEventHandle()
+{
+	fenceEventHandle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	if (fenceEventHandle == NULL)
+	{
+		throw(runtime_error{ "Error creating fence event." });
+	}
+}
+
+void Graphics::waitForPreviousFrame()
+{
+	UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
+	UINT64 fenceValue{ fenceValues[frameIndex] };
+	ComPtr<ID3D12Fence> fence{ fences[frameIndex] };
+
+	if (FAILED(fence->SetEventOnCompletion(fenceValue, fenceEventHandle)))
+	{
+		throw(runtime_error{ "Failed set event on completion." });
+	}
+
+	DWORD wait{ WaitForSingleObject(fenceEventHandle, 10000) };
+	if (wait != WAIT_OBJECT_0)
+	{
+		throw(runtime_error{ "Failed WaitForSingleObject()." });
+	}
 }

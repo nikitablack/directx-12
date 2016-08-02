@@ -24,6 +24,13 @@ private:
 	void createDescriptoprHeapRtv();
 	void createDepthStencilBuffer();
 	void createDescriptorHeapDepthStencil();
+	void createCommandAllocators();
+	void createCommandList();
+	void createFences();
+	void createFenceEventHandle();
+
+protected:
+	void waitForPreviousFrame();
 
 protected:
 	std::shared_ptr<class Window> window;
@@ -37,4 +44,11 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descHeapRtv;
 	Microsoft::WRL::ComPtr<ID3D12Resource> depthStencilBuffer;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descHeapDepthStencil;
+
+protected:
+	std::vector<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>> commandAllocators;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList;
+	std::vector<Microsoft::WRL::ComPtr<ID3D12Fence>> fences;
+	std::vector<UINT64> fenceValues;
+	HANDLE fenceEventHandle;
 };

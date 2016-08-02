@@ -37,7 +37,7 @@ struct DomainToPixel
 	float3 color : COLOR;
 };
 
-float4 BernsteinBasis(float t)
+float4 bernsteinBasis(float t)
 {
 	float invT = 1.0f - t;
 	return float4(invT * invT * invT,	// (1-t)3
@@ -61,8 +61,8 @@ float3 evaluateBezier(const OutputPatch<HullToDomain, NUM_CONTROL_POINTS> bezpat
 DomainToPixel main(PatchConstantData input, float2 domain : SV_DomainLocation, const OutputPatch<HullToDomain, NUM_CONTROL_POINTS> patch, uint patchID : SV_PrimitiveID)
 {
 	// Evaluate the basis functions at (u, v)
-	float4 basisU = BernsteinBasis(domain.x);
-	float4 basisV = BernsteinBasis(domain.y);
+	float4 basisU = bernsteinBasis(domain.x);
+	float4 basisV = bernsteinBasis(domain.y);
 
 	// Evaluate the surface position for this vertex
 	float3 localPos = evaluateBezier(patch, basisU, basisV);

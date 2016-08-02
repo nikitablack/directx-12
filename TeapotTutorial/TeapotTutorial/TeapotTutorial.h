@@ -1,9 +1,9 @@
 #pragma once
 
 #include <DirectXMath.h>
-#include "Graphics1.h"
+#include "Graphics.h"
 
-class TeapotTutorial : public Graphics1
+class TeapotTutorial : public Graphics
 {
 public:
 	TeapotTutorial(UINT bufferCount, std::string name, LONG width, LONG height);

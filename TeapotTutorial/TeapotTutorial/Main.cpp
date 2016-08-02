@@ -12,15 +12,15 @@ using namespace Microsoft::WRL;
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	const LONG width{ 800 };
-	const LONG height{ 600 };
+	const LONG width{ 400 };
+	const LONG height{ 300 };
 	const UINT bufferCount{ 2 };
 
 	shared_ptr<TeapotTutorial> teapot;
 
 	try
 	{
-		teapot = make_shared<TeapotTutorial>(bufferCount, "Hello Teapot!", 800, 600);
+		teapot = make_shared<TeapotTutorial>(bufferCount, "Hello Teapot!", width, height);
 	}
 	catch (runtime_error& err)
 	{
