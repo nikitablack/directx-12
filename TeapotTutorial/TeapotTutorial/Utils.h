@@ -67,11 +67,11 @@ namespace teapot_tutorial
 			throw(runtime_error{ "Error creating an upload buffer." });
 		}
 
-		D3D12_SUBRESOURCE_DATA subresourceData;
+		/*D3D12_SUBRESOURCE_DATA subresourceData;
 		ZeroMemory(&subresourceData, sizeof(subresourceData));
 		subresourceData.pData = data.data();
 		subresourceData.RowPitch = bufferSize;
-		subresourceData.SlicePitch = bufferSize;
+		subresourceData.SlicePitch = bufferSize;*/
 
 		ComPtr<ID3D12CommandAllocator> commandAllocator;
 		if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(commandAllocator.ReleaseAndGetAddressOf()))))
@@ -85,10 +85,10 @@ namespace teapot_tutorial
 			throw(runtime_error{ "Error creating a command list." });
 		}
 
-		if (FAILED(commandList->Close()))
+		/*if (FAILED(commandList->Close()))
 		{
 			throw(runtime_error{ "Error closing a command list." });
-		}
+		}*/
 
 		D3D12_COMMAND_QUEUE_DESC queueDesc;
 		ZeroMemory(&queueDesc, sizeof(queueDesc));
@@ -103,21 +103,18 @@ namespace teapot_tutorial
 			throw(runtime_error{ "Error creating a command queue." });
 		}
 
-		UINT64 initialValue{ 0 };
-		Microsoft::WRL::ComPtr<ID3D12Fence> fence;
-		if (FAILED(device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.ReleaseAndGetAddressOf()))))
+		//commandList->Reset(commandAllocator.Get(), nullptr);
+		//updateBuffer(commandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), subresourceData);
+		void* pData;
+		if (FAILED(uploadBuffer->Map(0, NULL, &pData)))
 		{
-			throw(runtime_error{ "Error creating a fence." });
+			throw(runtime_error{ "Failed map intermediate resource." });
 		}
 
-		HANDLE fenceEventHandle{ CreateEvent(nullptr, FALSE, FALSE, nullptr) };
-		if (fenceEventHandle == NULL)
-		{
-			throw(runtime_error{ "Error creating a fence event." });
-		}
+		memcpy(pData, data.data(), bufferSize);
+		uploadBuffer->Unmap(0, NULL);
 
-		commandList->Reset(commandAllocator.Get(), nullptr);
-		updateBuffer(commandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), subresourceData);
+		commandList->CopyBufferRegion(defaultBuffer.Get(), 0, uploadBuffer.Get(), 0, bufferSize);
 
 		// CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER)
 		D3D12_RESOURCE_BARRIER barrierDesc;
@@ -134,6 +131,19 @@ namespace teapot_tutorial
 		commandList->Close();
 		std::vector<ID3D12CommandList*> ppCommandLists{ commandList.Get() };
 		commandQueue->ExecuteCommandLists(static_cast<UINT>(ppCommandLists.size()), ppCommandLists.data());
+
+		UINT64 initialValue{ 0 };
+		Microsoft::WRL::ComPtr<ID3D12Fence> fence;
+		if (FAILED(device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.ReleaseAndGetAddressOf()))))
+		{
+			throw(runtime_error{ "Error creating a fence." });
+		}
+
+		HANDLE fenceEventHandle{ CreateEvent(nullptr, FALSE, FALSE, nullptr) };
+		if (fenceEventHandle == NULL)
+		{
+			throw(runtime_error{ "Error creating a fence event." });
+		}
 
 		if (FAILED(commandQueue->Signal(fence.Get(), 1)))
 		{
