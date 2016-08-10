@@ -3,6 +3,10 @@
 *.user
 *.sdf
 *.opensdf
+*.cso
+*.db
+*.vcxproj
+*.vcxproj.filters
 Debug/
 Release/
 x64
