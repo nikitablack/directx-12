@@ -23,6 +23,14 @@ Graphics::Graphics(UINT bufferCount, string name, LONG width, LONG height) : buf
 	createFenceEventHandle();
 }
 
+Graphics::~Graphics()
+{
+	for (UINT i{ 0 }; i < bufferCount; i++)
+	{
+		waitFrameComplete(i);
+	}
+}
+
 void Graphics::createWindow(string name, LONG width, LONG height)
 {
 	window = make_shared<Window>(width, height, name.c_str());
@@ -285,9 +293,9 @@ void Graphics::createFenceEventHandle()
 	}
 }
 
-void Graphics::waitForPreviousFrame()
+void Graphics::waitFrameComplete(UINT frameIndex)
 {
-	UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
+	//UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
 	UINT64 fenceValue{ fenceValues[frameIndex] };
 	ComPtr<ID3D12Fence> fence{ fences[frameIndex] };
 

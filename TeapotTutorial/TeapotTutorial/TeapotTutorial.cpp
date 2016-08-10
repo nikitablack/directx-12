@@ -15,8 +15,8 @@ TeapotTutorial::TeapotTutorial(UINT bufferCount, string name, LONG width, LONG h
 	using TransformType = decltype(TeapotData::patchesTransforms)::value_type;
 	using ColorType = decltype(TeapotData::patchesColors)::value_type;
 
-	controlPointsBuffer = teapot_tutorial::createDefaultBuffer(device.Get(), TeapotData::points, L"control points");
-	controlPointsIndexBuffer = teapot_tutorial::createDefaultBuffer(device.Get(), TeapotData::patches, L"patches");
+	controlPointsBuffer = teapot_tutorial::createVertexBuffer(device.Get(), TeapotData::points, L"control points");
+	controlPointsIndexBuffer = teapot_tutorial::createIndexBuffer(device.Get(), TeapotData::patches, L"patches");
 
 	controlPointsBufferView.BufferLocation = controlPointsBuffer->GetGPUVirtualAddress();
 	controlPointsBufferView.StrideInBytes = static_cast<UINT>(sizeof(PointType));
@@ -26,8 +26,8 @@ TeapotTutorial::TeapotTutorial(UINT bufferCount, string name, LONG width, LONG h
 	controlPointsIndexBufferView.Format = DXGI_FORMAT_R32_UINT;
 	controlPointsIndexBufferView.SizeInBytes = static_cast<UINT>(TeapotData::patches.size() * sizeof(uint32_t));
 
-	transformsBuffer = teapot_tutorial::createDefaultBuffer(device.Get(), TeapotData::patchesTransforms, L"transforms");
-	colorsBuffer = teapot_tutorial::createDefaultBuffer(device.Get(), TeapotData::patchesColors, L"colors");
+	transformsBuffer = teapot_tutorial::createStructuredBuffer(device.Get(), TeapotData::patchesTransforms, L"transforms");
+	colorsBuffer = teapot_tutorial::createStructuredBuffer(device.Get(), TeapotData::patchesColors, L"colors");
 
 	createTransformsAndColorsDescHeap();
 	
@@ -137,8 +137,6 @@ void TeapotTutorial::render()
 	UINT constDataSizeAligned{ (sizeof(XMFLOAT4X4) + 255) & ~255 };
 
 	POINT mousePoint(window->getMousePosition());
-	mousePoint.x = 210;
-	mousePoint.y = 50;
 	float pitch{ -XMConvertToRadians((mousePoint.x - (static_cast<float>(windowSize.x) / 2.0f)) / (static_cast<float>(windowSize.x) / 2.0f) * 180.0f) };
 	float roll{ XMConvertToRadians((mousePoint.y - (static_cast<float>(windowSize.y) / 2.0f)) / (static_cast<float>(windowSize.y) / 2.0f) * 180.0f) };
 
@@ -191,7 +189,7 @@ void TeapotTutorial::render()
 		throw(runtime_error{ "Failed signal." });
 	}
 
-	waitForPreviousFrame();
+	waitFrameComplete(swapChain->GetCurrentBackBufferIndex());
 }
 
 void TeapotTutorial::createTransformsAndColorsDescHeap()

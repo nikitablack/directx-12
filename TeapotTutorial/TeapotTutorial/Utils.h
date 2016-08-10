@@ -5,10 +5,10 @@
 #include <vector>
 #include <string>
 
-namespace teapot_tutorial
+namespace details
 {
 	template<typename T>
-	Microsoft::WRL::ComPtr<ID3D12Resource> createDefaultBuffer(ID3D12Device* device, const std::vector<T>& data, std::wstring name = L"")
+	Microsoft::WRL::ComPtr<ID3D12Resource> createDefaultBuffer(ID3D12Device* device, const std::vector<T>& data, D3D12_RESOURCE_STATES finalState, std::wstring name = L"")
 	{
 		UINT elementSize{ static_cast<UINT>(sizeof(T)) };
 		UINT bufferSize{ static_cast<UINT>(data.size() * elementSize) };
@@ -37,9 +37,9 @@ namespace teapot_tutorial
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> defaultBuffer;
 		HRESULT hr{ device->CreateCommittedResource(
-			&heapProps, // CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT)
+			&heapProps,
 			D3D12_HEAP_FLAG_NONE,
-			&resourceDesc, // CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+			&resourceDesc,
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			nullptr,
 			IID_PPV_ARGS(defaultBuffer.ReleaseAndGetAddressOf())) };
@@ -55,9 +55,9 @@ namespace teapot_tutorial
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> uploadBuffer;
 		hr = device->CreateCommittedResource(
-			&heapProps, // CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			&heapProps,
 			D3D12_HEAP_FLAG_NONE,
-			&resourceDesc, // CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+			&resourceDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(uploadBuffer.ReleaseAndGetAddressOf()));
@@ -66,12 +66,6 @@ namespace teapot_tutorial
 		{
 			throw(runtime_error{ "Error creating an upload buffer." });
 		}
-
-		/*D3D12_SUBRESOURCE_DATA subresourceData;
-		ZeroMemory(&subresourceData, sizeof(subresourceData));
-		subresourceData.pData = data.data();
-		subresourceData.RowPitch = bufferSize;
-		subresourceData.SlicePitch = bufferSize;*/
 
 		ComPtr<ID3D12CommandAllocator> commandAllocator;
 		if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(commandAllocator.ReleaseAndGetAddressOf()))))
@@ -84,11 +78,6 @@ namespace teapot_tutorial
 		{
 			throw(runtime_error{ "Error creating a command list." });
 		}
-
-		/*if (FAILED(commandList->Close()))
-		{
-			throw(runtime_error{ "Error closing a command list." });
-		}*/
 
 		D3D12_COMMAND_QUEUE_DESC queueDesc;
 		ZeroMemory(&queueDesc, sizeof(queueDesc));
@@ -103,8 +92,6 @@ namespace teapot_tutorial
 			throw(runtime_error{ "Error creating a command queue." });
 		}
 
-		//commandList->Reset(commandAllocator.Get(), nullptr);
-		//updateBuffer(commandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(), subresourceData);
 		void* pData;
 		if (FAILED(uploadBuffer->Map(0, NULL, &pData)))
 		{
@@ -116,14 +103,13 @@ namespace teapot_tutorial
 
 		commandList->CopyBufferRegion(defaultBuffer.Get(), 0, uploadBuffer.Get(), 0, bufferSize);
 
-		// CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER)
 		D3D12_RESOURCE_BARRIER barrierDesc;
 		ZeroMemory(&barrierDesc, sizeof(barrierDesc));
 		barrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 		barrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 		barrierDesc.Transition.pResource = defaultBuffer.Get();
 		barrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-		barrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+		barrierDesc.Transition.StateAfter = finalState;
 		barrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
 		commandList->ResourceBarrier(1, &barrierDesc);
@@ -163,11 +149,32 @@ namespace teapot_tutorial
 
 		return defaultBuffer;
 	}
+}
+
+namespace teapot_tutorial
+{
+	template<typename T>
+	Microsoft::WRL::ComPtr<ID3D12Resource> createVertexBuffer(ID3D12Device* device, const std::vector<T>& data, std::wstring name = L"")
+	{
+		return details::createDefaultBuffer(device, data, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, name);
+	}
+
+	template<typename T>
+	Microsoft::WRL::ComPtr<ID3D12Resource> createIndexBuffer(ID3D12Device* device, const std::vector<T>& data, std::wstring name = L"")
+	{
+		return details::createDefaultBuffer(device, data, D3D12_RESOURCE_STATE_INDEX_BUFFER, name);
+	}
+
+	template<typename T>
+	Microsoft::WRL::ComPtr<ID3D12Resource> createStructuredBuffer(ID3D12Device* device, const std::vector<T>& data, std::wstring name = L"")
+	{
+		return details::createDefaultBuffer(device, data, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, name);
+	}
 
 	template<typename T>
 	void createSrv(ID3D12Device* device, ID3D12DescriptorHeap* descHeap, int offset, ID3D12Resource* resource, size_t numElements)
 	{
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc; // https://msdn.microsoft.com/en-us/library/windows/desktop/dn770406(v=vs.85).aspx
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 		ZeroMemory(&srvDesc, sizeof(srvDesc));
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN; // https://msdn.microsoft.com/en-us/library/windows/desktop/dn859358(v=vs.85).aspx#shader_resource_view
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -181,50 +188,5 @@ namespace teapot_tutorial
 		D3D12_CPU_DESCRIPTOR_HANDLE d{ descHeap->GetCPUDescriptorHandleForHeapStart() };
 		d.ptr += descriptorSize * offset;
 		device->CreateShaderResourceView(resource, &srvDesc, d);
-	}
-
-	UINT64 UpdateSubresources2(
-		_In_ ID3D12GraphicsCommandList* pCmdList,
-		_In_ ID3D12Resource* pDestinationResource,
-		_In_ ID3D12Resource* pIntermediate,
-		UINT64 RequiredSize,
-		_In_reads_(1) const D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint,
-		_In_reads_(1) const UINT numRows,
-		_In_reads_(1) const UINT64 rowSizesInBytes,
-		_In_reads_(1) const D3D12_SUBRESOURCE_DATA srcData)
-	{
-		void* pData;
-		if (FAILED(pIntermediate->Map(0, NULL, &pData)))
-		{
-			throw(std::runtime_error{ "Failed map intermediate resource." });
-		}
-
-		memcpy(pData, srcData.pData, rowSizesInBytes);
-		pIntermediate->Unmap(0, NULL);
-
-		pCmdList->CopyBufferRegion(pDestinationResource, 0, pIntermediate, footprint.Offset, footprint.Footprint.Width);
-
-		return RequiredSize;
-	}
-
-	void updateBuffer(ID3D12GraphicsCommandList* pCmdList, ID3D12Resource* pDestinationResource, ID3D12Resource* pIntermediate, D3D12_SUBRESOURCE_DATA srcData)
-	{
-		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint; // 0, DXGI_FORMAT_UNKNOWN, 1416, 1, 1, 1536
-
-		D3D12_RESOURCE_DESC resourceDesc = pDestinationResource->GetDesc();
-		Microsoft::WRL::ComPtr<ID3D12Device> device;
-		pDestinationResource->GetDevice(IID_PPV_ARGS(device.ReleaseAndGetAddressOf()));
-		device->GetCopyableFootprints(&resourceDesc, 0, 1, 0, &footprint, NULL, NULL, NULL);
-		
-		void* pData;
-		if (FAILED(pIntermediate->Map(0, NULL, &pData)))
-		{
-			throw(std::runtime_error{ "Failed map intermediate resource." });
-		}
-
-		memcpy(pData, srcData.pData, footprint.Footprint.Width);
-		pIntermediate->Unmap(0, NULL);
-
-		pCmdList->CopyBufferRegion(pDestinationResource, 0, pIntermediate, footprint.Offset, footprint.Footprint.Width);
 	}
 }

@@ -12,9 +12,9 @@ using namespace Microsoft::WRL;
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	const LONG width{ 400 };
-	const LONG height{ 300 };
-	const UINT bufferCount{ 2 };
+	const LONG width{ 800 };
+	const LONG height{ 600 };
+	const UINT bufferCount{ 3 };
 
 	shared_ptr<TeapotTutorial> teapot;
 

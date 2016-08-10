@@ -12,6 +12,7 @@ class Graphics
 {
 public:
 	Graphics(UINT bufferCount, std::string name, LONG width, LONG height);
+	~Graphics();
 
 private:
 	void createWindow(std::string name, LONG width, LONG height);
@@ -30,7 +31,7 @@ private:
 	void createFenceEventHandle();
 
 protected:
-	void waitForPreviousFrame();
+	void waitFrameComplete(UINT frameIndex);
 
 protected:
 	std::shared_ptr<class Window> window;
