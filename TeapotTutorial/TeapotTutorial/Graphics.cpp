@@ -119,7 +119,7 @@ void Graphics::createSwapChain()
 	swapChainDesc.Height = static_cast<UINT>(wSize.y);
 	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc.Stereo = FALSE;
-	swapChainDesc.SampleDesc = { 1, 0 }; // no anti-aliasing
+	swapChainDesc.SampleDesc = { 1, 0 };
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.BufferCount = bufferCount;
 	swapChainDesc.Scaling = DXGI_SCALING_NONE;
@@ -205,9 +205,9 @@ void Graphics::createDepthStencilBuffer()
 	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
 	HRESULT hr{ device->CreateCommittedResource(
-		&heapProps, // CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		&heapProps,
 		D3D12_HEAP_FLAG_NONE,
-		&resourceDesc, // CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, wSize.x, wSize.y, 1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL),
+		&resourceDesc,
 		D3D12_RESOURCE_STATE_DEPTH_WRITE,
 		&depthOptimizedClearValue,
 		IID_PPV_ARGS(depthStencilBuffer.ReleaseAndGetAddressOf())
@@ -295,7 +295,6 @@ void Graphics::createFenceEventHandle()
 
 void Graphics::waitFrameComplete(UINT frameIndex)
 {
-	//UINT frameIndex{ swapChain->GetCurrentBackBufferIndex() };
 	UINT64 fenceValue{ fenceValues[frameIndex] };
 	ComPtr<ID3D12Fence> fence{ fences[frameIndex] };
 
